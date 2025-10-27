@@ -12,8 +12,8 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.render.entity.EntityRenderDispatcher;
-import net.minecraft.client.render.entity.EntityRenderer;
+import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.entity.EntityRendererFactories;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.storage.NbtWriteView;
@@ -644,10 +644,10 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         if (!(entity instanceof LivingEntity living)) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
-        EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
+        EntityRenderManager manager = client.getEntityRenderDispatcher();
 
-        EntityRenderer<LivingEntity, ? extends EntityRenderState> renderer =
-                (EntityRenderer<LivingEntity, ? extends EntityRenderState>) dispatcher.getRenderer(living);
+        EntityRendererFactories<LivingEntity, ? extends EntityRenderState> renderer =
+                (EntityRendererFactories<LivingEntity, ? extends EntityRenderState>) manager.getRenderer(living);
 
         boolean isPreview = (scale > 30); // Center-Preview higher (~35), varianten are lower (~25)
         renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
@@ -655,7 +655,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
 
     private <S extends EntityRenderState> void renderCaptured(
-        EntityRenderer<LivingEntity, S> renderer,
+        EntityRendererFactories<LivingEntity, S> renderer,
         LivingEntity living,
         DrawContext context,
         int x, int y, int scale,

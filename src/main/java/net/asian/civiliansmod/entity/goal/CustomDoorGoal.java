@@ -45,7 +45,7 @@ public class CustomDoorGoal extends Goal {
     public void start() {
         if (targetDoorPos == null) return;
 
-        ServerWorld world = (ServerWorld) npc.getWorld();
+        ServerWorld world = (ServerWorld) npc.getEntityWorld();
         BlockState doorState = world.getBlockState(targetDoorPos);
 
         // Open the door if it's closed
@@ -90,7 +90,7 @@ public class CustomDoorGoal extends Goal {
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 BlockPos pos = npcPos.add(dx, 0, dz);
-                BlockState state = npc.getWorld().getBlockState(pos);
+                BlockState state = npc.getEntityWorld().getBlockState(pos);
                 if (state.getBlock() instanceof DoorBlock && state.contains(DoorBlock.FACING)) {
                     return pos; // Return the first detected valid door with FACING property
                 }
@@ -121,7 +121,7 @@ public class CustomDoorGoal extends Goal {
             return npc.getPos(); // Fallback to current NPC position
         }
 
-        BlockState doorState = npc.getWorld().getBlockState(targetDoorPos);
+        BlockState doorState = npc.getEntityWorld().getBlockState(targetDoorPos);
 
         // Check if the block state is a DoorBlock and supports the 'FACING' property
         if (!(doorState.getBlock() instanceof DoorBlock) || !doorState.contains(DoorBlock.FACING)) {
@@ -154,7 +154,7 @@ public class CustomDoorGoal extends Goal {
 
     private void closeDoor() {
         // Close the door after NPC has passed through
-        ServerWorld world = (ServerWorld) npc.getWorld();
+        ServerWorld world = (ServerWorld) npc.getEntityWorld();
         BlockState doorState = world.getBlockState(targetDoorPos);
         if (doorState.getBlock() instanceof DoorBlock && doorState.get(DoorBlock.OPEN)) {
             toggleDoor(world, doorState, false);

@@ -44,7 +44,7 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
 
     public void handlePacket(ServerPlayNetworking.Context context) {
         if (skin == null || skin.length == 0) return;
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
         //if (skin.length != 16384) return;
         entity.getSkinManager().setSkinByteArray(skin);

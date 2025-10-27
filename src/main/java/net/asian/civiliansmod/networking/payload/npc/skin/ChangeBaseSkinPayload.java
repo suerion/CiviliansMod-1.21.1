@@ -29,7 +29,7 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
     }
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
         entity.getSkinManager().setBaseVariant(this.baseVariant);
         for (ServerPlayerEntity player : world.getPlayers()) {

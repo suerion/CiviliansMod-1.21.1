@@ -34,7 +34,7 @@ public record NPCDataPayload(UUID entityUuid, String customName, boolean isPause
 
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.entityUuid) instanceof NPCEntity entity)) return;
 
         entity.setCustomName(Text.of(this.customName));

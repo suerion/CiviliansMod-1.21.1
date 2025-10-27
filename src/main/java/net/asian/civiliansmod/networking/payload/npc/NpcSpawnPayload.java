@@ -57,7 +57,7 @@ public record NpcSpawnPayload(int npcId, String dialogues, byte[] skin) implemen
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        World world = context.player().getWorld();
+        World world = context.player().getEntityWorld();
         if (!(world.getEntityById(this.npcId) instanceof NPCEntity entity)) return;
         if (skin.length != 16384) return;
         entity.getSkinManager().setSkinByteArray(skin);

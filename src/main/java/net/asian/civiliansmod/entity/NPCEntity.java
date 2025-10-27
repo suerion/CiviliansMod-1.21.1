@@ -102,11 +102,11 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
         if (this.skinManager.skinByteArray == null) {
-            for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
+            for (ServerPlayerEntity player : Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
                 ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), this.skinManager.baseVariant));
             }
         } else {
-            for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
+            for (ServerPlayerEntity player : Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
                 ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
             }
         }
@@ -117,7 +117,7 @@ public class NPCEntity extends PathAwareEntity {
         super(entityType, world);
 
 
-        if (!this.getWorld().isClient) {
+        if (!this.getEntityWorld().isClient) {
             this.setCustomNameVisible(true);
             this.sent = new HashSet<>();
         } else {
@@ -242,7 +242,7 @@ public class NPCEntity extends PathAwareEntity {
             ItemStack heldItem = player.getStackInHand(hand);
             if (heldItem.isOf(Items.LEAD) && !this.hasPassengers()) {
                 // Leash the NPC to the player if not already leashed
-                if (!this.getWorld().isClient()) {
+                if (!this.getEntityWorld().isClient()) {
                     if (this.canBeLeashedBy(player)) {
                         this.attachLeash(player, true);
                         return ActionResult.SUCCESS;
@@ -252,7 +252,7 @@ public class NPCEntity extends PathAwareEntity {
 
             // Check if the player is sneaking
             if (player.isSneaking()) {
-                if (!this.getWorld().isClient()) {
+                if (!this.getEntityWorld().isClient()) {
                     // SERVER-SIDE: Handle dialogue payload and NPC behavior
                     this.getNavigation().stop();
 
@@ -284,7 +284,7 @@ public class NPCEntity extends PathAwareEntity {
                 }
             } else {
                 // NORMAL INTERACTION (not sneaking) - Send chat message
-                if (!this.getWorld().isClient()) {
+                if (!this.getEntityWorld().isClient()) {
                     this.getNavigation().stop();
 
                     double dx = player.getX() - this.getX();
@@ -330,7 +330,7 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public void tick() {
         super.tick();
-        if (getWorld().isClient) {
+        if (getEntityWorld().isClient) {
             if (--updateDialoguesTicks == 0) {
                 ClientPlayNetworking.send(new ClientDialogueSyncPayload(this.getUuid()));
             }
@@ -346,7 +346,7 @@ public class NPCEntity extends PathAwareEntity {
             this.setVelocity(0.0, 0.0, 0.0);
 
             // Make the NPC look at the nearest player within 5 blocks
-            PlayerEntity nearestPlayer = this.getWorld().getClosestPlayer(this, 5.0);
+            PlayerEntity nearestPlayer = this.getEntityWorld().getClosestPlayer(this, 5.0);
             if (nearestPlayer != null) {
                 // Calculate direction for looking at the player
                 double dx = nearestPlayer.getX() - this.getX();
@@ -366,8 +366,8 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         // Handle "Follow" state
-        if (isFollowing() && this.getWorld() != null && !this.getWorld().isClient) {
-            PlayerEntity nearestPlayer = this.getWorld().getClosestPlayer(this, 15); // Follow within a 10-block radius
+        if (isFollowing() && this.getEntityWorld() != null && !this.getEntityWorld().isClient) {
+            PlayerEntity nearestPlayer = this.getEntityWorld().getClosestPlayer(this, 15); // Follow within a 10-block radius
 
             if (nearestPlayer != null) {
                 double distanceToPlayer = this.squaredDistanceTo(nearestPlayer);
@@ -682,7 +682,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public void markDialoguesDirty(UUID avoid) {
-            if (!(npc.getWorld() instanceof ServerWorld serverWorld)) return;
+            if (!(npc.getEntityWorld() instanceof ServerWorld serverWorld)) return;
 
             for (ServerPlayerEntity player : serverWorld.getPlayers(p -> !p.getUuid().equals(avoid))) {
                 try {

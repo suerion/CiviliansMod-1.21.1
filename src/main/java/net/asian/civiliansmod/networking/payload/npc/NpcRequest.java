@@ -30,7 +30,7 @@ public record NpcRequest(UUID npcId) implements CustomPayload {
     }
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcId) instanceof NPCEntity entity)) return;
 
     }

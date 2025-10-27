@@ -3,7 +3,7 @@ package net.asian.civiliansmod.renderer;
 import net.minecraft.client.render.entity.state.BipedEntityRenderState;
 import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.util.DefaultSkinHelper;
-import net.minecraft.client.util.SkinTextures;
+import net.minecraft.entity.player.SkinTextures;
 import net.minecraft.entity.passive.ParrotEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
