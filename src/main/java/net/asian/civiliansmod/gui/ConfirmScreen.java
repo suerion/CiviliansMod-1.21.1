@@ -33,7 +33,7 @@ public class ConfirmScreen extends Screen {
         int y = height / 2;
         super.init();
         TextButtonWidget confirm = new TextButtonWidget(x + 6, y + 30, 60, 15, Text.translatable("civilians.gui.confirm"), confirmAction, 0xFFFFFFFF, 0xFF00FF00);
-        TextButtonWidget cancel = new TextButtonWidget(x - 66, y + 30, 60, 15, Text.translatable("civilians.gui.cancel"), confirmAction, 0xFFFFFFFF, 0xFFFF0000);
+        TextButtonWidget cancel = new TextButtonWidget(x - 66, y + 30, 60, 15, Text.translatable("civilians.gui.cancel"), cancelAction, 0xFFFFFFFF, 0xFFFF0000);
 
         addDrawableChild(confirm);
         addDrawableChild(cancel);
@@ -44,7 +44,7 @@ public class ConfirmScreen extends Screen {
         super.render(context, mouseX, mouseY, delta);
         int x = width / 2;
         int y = height / 2;
-        text.drawCenterWithShadow(context, x, y - 6, 9, color);
+        text.drawCenter(context, x, y - 6);
     }
 
     @Override

@@ -12,7 +12,9 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.render.entity.EntityRenderManager;
+import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactories;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.entity.LivingEntity;
@@ -309,52 +311,49 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         context.fill(scrollBarX + 1, this.scrollbarY, scrollBarX + 5, this.scrollbarY + this.scrollbarHeight, 0xFFAAAAAA);
     }
 
-
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Container dimensions
+    public boolean mouseClicked(Click click, boolean fromKeyboard) {
+        double mouseX = click.x();
+        double mouseY = click.y();
+        int button = click.button();
+
         int containerWidth = 256;
         int containerX = (this.width - containerWidth) / 2;
 
-        // Scroll bar position
-        int scrollBarX = containerX + 70; // Match `renderVanillaScrollBar`
-        // Match `renderVanillaScrollBar`
+        int scrollBarX = containerX + 70;
 
-        // Check if clicking within the scroll handle
-        if (mouseX >= scrollBarX && mouseX <= scrollBarX + 6 && mouseY >= this.scrollbarY && mouseY <= this.scrollbarY + this.scrollbarHeight) {
+        if (mouseX >= scrollBarX && mouseX <= scrollBarX + 6 &&
+                mouseY >= this.scrollbarY && mouseY <= this.scrollbarY + this.scrollbarHeight) {
             this.isScrolling = true;
-
-            // Capture the click offset within the scroll handle
             this.scrollbarGrabOffset = (int) (mouseY - this.scrollbarY);
             return true;
         }
-        if (button == 0) { // Left mouse button
-            int panelX = /*(3 * containerX / 4)*/  (containerX + 83);
 
-            // Detect which variant is clicked based on the selected tab
+        if (button == 0) { // left mouse button
+            int panelX = containerX + 83;
             int clickedVariant = detectClickedVariant(mouseX, mouseY, panelX);
 
             if (clickedVariant != -1) {
                 this.selectedVariant = clickedVariant;
                 if (clickedVariant < toRender.size())
                     this.selectedVariantIndex = toRender.get(clickedVariant);
-                this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex)); // Update NPC variant immediately
+                this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex));
 
                 if (!NPCUtil.getNPCTexture(clickedVariant).custom())
                     this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
 
-                try (ErrorReporter.Logging logging = new ErrorReporter.Logging(npc.getErrorReporterContext(), CiviliansMod.LOGGER)) {
+                try (ErrorReporter.Logging logging =
+                             new ErrorReporter.Logging(npc.getErrorReporterContext(), CiviliansMod.LOGGER)) {
                     NbtWriteView nbtWriteView = NbtWriteView.create(logging, npc.getRegistryManager());
                     npc.writeData(nbtWriteView);
-                } catch (Exception var11) {
+                } catch (Exception e) {
                     CiviliansMod.LOGGER.warn("Failed to save player data for {}", npc.getName().getString());
                 }
             }
         }
 
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(click, fromKeyboard);
     }
-
 
     private int detectClickedVariant(double mouseX, double mouseY, int panelX/*, boolean isDefaultTab*/) {
         int containerHeight = 166;
@@ -467,30 +466,23 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     }
 
     @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
         if (this.isScrolling) {
-
             int containerHeight = 166;
             int containerY = (this.height - containerHeight) / 2;
-
-            // Scroll bar position and height
-            int scrollBarY = containerY + 40; // Match `renderVanillaScrollBar` and `updateScrollBarDimensions`
+            int scrollBarY = containerY + 40;
             int scrollBarHeight = containerHeight - 55;
 
-            // Adjust relativeY to account for the grab offset
-            float relativeY = (float) (mouseY - scrollBarY - this.scrollbarGrabOffset);
+            float relativeY = (float) (click.y() - scrollBarY - this.scrollbarGrabOffset);
             float scrollPercent = relativeY / (scrollBarHeight - this.scrollbarHeight);
 
-            // Calculate new scrollOffset and clamp
             this.scrollOffset = Math.max(0, Math.min((int) (scrollPercent * maxScrollOffset), maxScrollOffset));
-
-            // Snap scroll offset to the nearest row
             this.scrollOffset = (this.scrollOffset / ENTITY_SPACING) * ENTITY_SPACING;
 
             updateScrollBarDimensions();
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY);
     }
 
     @Override
@@ -501,12 +493,10 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     }
 
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    public boolean mouseReleased(Click click) {
         this.isScrolling = false;
-
-        // Reset the grab offset after releasing the scroll bar
         this.scrollbarGrabOffset = 0;
-        return super.mouseReleased(mouseX, mouseY, button);
+        return super.mouseReleased(click);
     }
 
 
@@ -644,32 +634,31 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         if (!(entity instanceof LivingEntity living)) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
+
+
         EntityRenderManager manager = client.getEntityRenderDispatcher();
+        EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer =
+                manager.getRenderer(living);
 
-        EntityRendererFactories<LivingEntity, ? extends EntityRenderState> renderer =
-                (EntityRendererFactories<LivingEntity, ? extends EntityRenderState>) manager.getRenderer(living);
-
-        boolean isPreview = (scale > 30); // Center-Preview higher (~35), varianten are lower (~25)
+        boolean isPreview = (scale > 30);
         renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
     }
 
 
-    private <S extends EntityRenderState> void renderCaptured(
-        EntityRendererFactories<LivingEntity, S> renderer,
-        LivingEntity living,
-        DrawContext context,
-        int x, int y, int scale,
-        MinecraftClient client,
-        boolean isPreview) {
+    private void renderCaptured(
+            EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer,
+            LivingEntity living,
+            DrawContext context,
+            int x, int y, int scale,
+            MinecraftClient client,
+            boolean isPreview) {
 
-        S renderState = renderer.createRenderState();
-        renderer.updateRenderState(living, renderState, client.getRenderTickCounter().getTickProgress(false));
+        EntityRenderState state = renderer.createRenderState();
+        renderer.updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
 
-        //rotation fix
         Vector3f translation = new Vector3f(0f, 0f, 0f);
         Quaternionf rotation = new Quaternionf();
 
-        //need to rotate 180° and Y + 15°
         if (isPreview) {
             rotation.rotateZ((float) Math.toRadians(180f))
                     .rotateY((float) Math.toRadians(195f))
@@ -681,7 +670,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         }
         Quaternionf cameraAngle = new Quaternionf().rotateX((float) Math.toRadians(15f));
 
-        context.addEntity(renderState, scale, translation, rotation, cameraAngle,
+        context.addEntity(state, scale, translation, rotation, cameraAngle,
                 x - scale, y - (int)(scale * 2.5f), x + scale, y + (int)(scale * 2.5f));
     }
 }

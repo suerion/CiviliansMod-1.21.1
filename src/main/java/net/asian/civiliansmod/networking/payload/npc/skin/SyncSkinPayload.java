@@ -27,7 +27,7 @@ public record SyncSkinPayload(int npcId, int id) implements CustomPayload {
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        ClientWorld clientWorld = context.player().clientWorld;
+        ClientWorld clientWorld = (ClientWorld) context.player().getEntityWorld();
         Entity entityById = clientWorld.getEntityById(this.npcId);
 
         if (entityById == null) {

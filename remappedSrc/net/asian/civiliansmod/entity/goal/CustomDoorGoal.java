@@ -86,7 +86,7 @@ public class CustomDoorGoal extends Goal {
 
     private BlockPos findNearbyDoor() {
         // Find doors within a radius of NPC
-        BlockPos npcPos = npc.getBlockPos();
+        BlockPos npcPos = npc.getPos()();
         for (int dx = -2; dx <= 2; dx++) {
             for (int dz = -2; dz <= 2; dz++) {
                 BlockPos pos = npcPos.add(dx, 0, dz);

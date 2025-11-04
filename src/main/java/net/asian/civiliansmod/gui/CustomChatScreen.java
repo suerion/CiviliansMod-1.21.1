@@ -105,11 +105,11 @@ public class CustomChatScreen extends AbstractConfigScreen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (chatScrollWidget != null && chatScrollWidget.mouseClicked(mouseX, mouseY, button)) {
+    public boolean mouseClicked(double mouseX, double mouseY) {
+        if (chatScrollWidget != null && chatScrollWidget.mouseClicked(mouseX, mouseY)) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return super.mouseClicked(mouseX, mouseY);
     }
 
     //after close reset the screen is initialized

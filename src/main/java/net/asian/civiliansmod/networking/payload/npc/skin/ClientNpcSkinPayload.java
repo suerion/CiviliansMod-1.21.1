@@ -37,7 +37,7 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
 
     @Environment(EnvType.CLIENT)
     public void handlePacket(ClientPlayNetworking.Context context) {
-        ClientWorld clientWorld = context.player().clientWorld;
+        ClientWorld clientWorld = (ClientWorld) context.player().getEntityWorld();
         Entity entityById = clientWorld.getEntityById(this.npcId);
 
         try {

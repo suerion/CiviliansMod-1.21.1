@@ -40,7 +40,7 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogue) implements 
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof World world)) return;
+        if (!(context.player().getEntityWorld() instanceof World world)) return;
         if (!(world.getEntityById(this.npcId) instanceof NPCEntity)) {
             Entity entity = world.getEntityById(this.npcId);
             if (!(entity instanceof NPCEntity npc)) {

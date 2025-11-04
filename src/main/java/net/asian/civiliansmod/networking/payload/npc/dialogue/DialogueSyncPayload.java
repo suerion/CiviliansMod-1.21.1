@@ -53,7 +53,7 @@ public record DialogueSyncPayload(int npcId, String info) implements CustomPaylo
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof World world)) return;
+        if (!(context.player().getEntityWorld() instanceof World world)) return;
         if (!(world.getEntityById(this.npcId) instanceof NPCEntity entity)) return;
 
         try {

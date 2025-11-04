@@ -37,7 +37,7 @@ public record EditDialoguePayload(UUID npcUuid, String language, String chatReas
     }
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
         String lang = this.language;

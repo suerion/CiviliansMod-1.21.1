@@ -118,14 +118,14 @@ public class CustomDoorGoal extends Goal {
     private Vec3d getTargetPosition() {
         // Ensure the targetDoorPos and corresponding BlockState are valid
         if (targetDoorPos == null) {
-            return npc.getPos(); // Fallback to current NPC position
+            return npc.getBlockPos().toCenterPos(); // Fallback to current NPC position
         }
 
         BlockState doorState = npc.getEntityWorld().getBlockState(targetDoorPos);
 
         // Check if the block state is a DoorBlock and supports the 'FACING' property
         if (!(doorState.getBlock() instanceof DoorBlock) || !doorState.contains(DoorBlock.FACING)) {
-            return npc.getPos(); // Fallback to NPC's current position
+            return npc.getBlockPos().toCenterPos(); // Fallback to NPC's current position
         }
 
         Direction facing = doorState.get(DoorBlock.FACING);
@@ -149,7 +149,7 @@ public class CustomDoorGoal extends Goal {
 
     private boolean hasReachedPosition(Vec3d targetPosition) {
         // Check if the NPC has reached the target position near the door
-        return npc.getPos().isInRange(targetPosition, 1.0);
+        return npc.getBlockPos().toCenterPos().isInRange(targetPosition, 1.0);
     }
 
     private void closeDoor() {

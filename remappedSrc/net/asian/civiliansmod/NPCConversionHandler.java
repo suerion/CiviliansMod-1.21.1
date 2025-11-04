@@ -29,7 +29,7 @@ public class NPCConversionHandler {
     private static ActionResult onEntityInteract(net.minecraft.entity.player.PlayerEntity player, World world, Hand hand, Entity entity, EntityHitResult hitResult) {
 
         // Ensure the interaction is server-side
-        if (!world.isClient && hand == Hand.MAIN_HAND) {
+        if (!world.isClient() && hand == Hand.MAIN_HAND) {
             // Check if the entity is an unassigned Villager
             if (entity.getType() == EntityType.VILLAGER && entity instanceof VillagerEntity villager) {
                 // Only allow if Villager has no profession

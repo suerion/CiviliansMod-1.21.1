@@ -2,10 +2,11 @@ package net.asian.civiliansmod.renderer;
 
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
-import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.render.command.OrderedRenderCommandQueue;
+import net.minecraft.client.render.state.CameraRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -39,9 +40,10 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
      * Adjusts the rendering model (default vs. slim) dynamically based on the entity's variant.
      */
     @Override
-    public void render(NPCRenderState livingEntityRenderState, MatrixStack matrixStack, VertexConsumerProvider vertexConsumerProvider, int i) {
-        this.model = livingEntityRenderState.slim ? slimModel : defaultModel;
-        super.render(livingEntityRenderState, matrixStack, vertexConsumerProvider, i);
+    public void render(NPCRenderState state, MatrixStack matrices,
+                       OrderedRenderCommandQueue queue, CameraRenderState cameraState) {
+        this.model = state.slim ? slimModel : defaultModel;
+        super.render(state, matrices, queue, cameraState);
     }
 
     /**

@@ -22,7 +22,7 @@ public class NPCConversionHandler {
     }
 
     private static ActionResult onEntityInteract(net.minecraft.entity.player.PlayerEntity player, World world, Hand hand, Entity entity, EntityHitResult hitResult) {
-        if (!world.isClient && hand == Hand.MAIN_HAND) {
+        if (!world.isClient() && hand == Hand.MAIN_HAND) {
             if (entity.getType() == EntityType.VILLAGER && entity instanceof VillagerEntity villager) {
                 if (!player.isSneaking()) {
                     return ActionResult.PASS;

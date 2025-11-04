@@ -100,7 +100,7 @@ public class NPCEntity extends PathAwareEntity {
     }
 
     @Override
-    public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
+    public Packet<ClientPlayPacketListener> createSpawnPacket() {
         if (this.skinManager.skinByteArray == null) {
             for (ServerPlayerEntity player : Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
                 ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), this.skinManager.baseVariant));
@@ -110,14 +110,14 @@ public class NPCEntity extends PathAwareEntity {
                 ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
             }
         }
-        return super.createSpawnPacket(entityTrackerEntry);
+        return new EntitySpawnS2CPacket(this);
     }
 
     public NPCEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
         super(entityType, world);
 
 
-        if (!this.getEntityWorld().isClient) {
+        if (!this.getEntityWorld().isClient()) {
             this.setCustomNameVisible(true);
             this.sent = new HashSet<>();
         } else {
@@ -330,7 +330,7 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public void tick() {
         super.tick();
-        if (getEntityWorld().isClient) {
+        if (this.getEntityWorld().isClient()) {
             if (--updateDialoguesTicks == 0) {
                 ClientPlayNetworking.send(new ClientDialogueSyncPayload(this.getUuid()));
             }
@@ -366,7 +366,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         // Handle "Follow" state
-        if (isFollowing() && this.getEntityWorld() != null && !this.getEntityWorld().isClient) {
+        if (isFollowing() && this.getEntityWorld() != null && !this.getEntityWorld().isClient()) {
             PlayerEntity nearestPlayer = this.getEntityWorld().getClosestPlayer(this, 15); // Follow within a 10-block radius
 
             if (nearestPlayer != null) {
@@ -688,7 +688,7 @@ public class NPCEntity extends PathAwareEntity {
                 try {
                     ServerPlayNetworking.send(player, new DialogueSyncPayload(npc.getId(), dialogues, customDialogues));
                 } catch (IOException e) {
-                    CiviliansMod.LOGGER.error("[CiviliansMod] Failed to sync dialogues to player {}", player.getGameProfile().getName(), e);
+                    CiviliansMod.LOGGER.error("[CiviliansMod] Failed to sync dialogues to player {}", player.getGameProfile().name(), e);
                 }
             }
         }

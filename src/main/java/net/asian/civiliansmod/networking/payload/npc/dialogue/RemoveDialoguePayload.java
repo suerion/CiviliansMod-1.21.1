@@ -36,7 +36,7 @@ public record RemoveDialoguePayload(UUID npcUuid, String language, String chatRe
     }
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
         NpcChat.ChatReason reason = NpcChat.ChatReason.valueOf(chatReason);
