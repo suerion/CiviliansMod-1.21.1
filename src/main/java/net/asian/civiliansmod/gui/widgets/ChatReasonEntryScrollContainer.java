@@ -7,6 +7,7 @@ import net.asian.civiliansmod.gui.CustomChatScreen;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.Element;
 import net.minecraft.client.gui.Selectable;
@@ -24,20 +25,23 @@ public class ChatReasonEntryScrollContainer extends ElementListWidget.Entry<Chat
     boolean customMode;
     boolean open = true;
     NpcChat.ChatReason chatReason;
+    CustomChatScreen screen;
+    GlobalChatScrollWidget parent;
 
     OpenWidget openWidget;
 
-    public ChatReasonEntryScrollContainer(NPCEntity npc, final NpcChat.ChatReason chatReason, List<String> strings, CustomChatScreen screen, boolean customMode) {
+    public ChatReasonEntryScrollContainer(GlobalChatScrollWidget parent, NPCEntity npc, final NpcChat.ChatReason chatReason, List<String> strings, CustomChatScreen screen, boolean customMode) {
+        this.parent = parent;
         this.chatReason = chatReason;
         this.customMode = customMode;
         for (int i = 0; i < strings.size(); i += 2) {
-            entries.add(new DialogueRowEntry(npc, chatReason, strings.subList(i, Math.min(i + 2, strings.size())), i, screen, customMode));
+            entries.add(new DialogueRowEntry(parent, npc, chatReason, strings.subList(i, Math.min(i + 2, strings.size())), i, screen, customMode));
         }
         if (strings.size() % 2 == 0) {
-            entries.add(new DialogueRowEntry(npc, chatReason, new ArrayList<>(), strings.size(), screen, customMode));
+            entries.add(new DialogueRowEntry(parent, npc, chatReason, new ArrayList<>(), strings.size(), screen, customMode));
         }
         if (customMode && strings.isEmpty()) {
-            entries.add(new DialogueRowEntry(npc, chatReason, new ArrayList<>(), 0, screen, true));
+            entries.add(new DialogueRowEntry(parent, npc, chatReason, new ArrayList<>(), 0, screen, true));
         }
 
         openWidget = new OpenWidget(0, 0, 10, 10, this, button -> open = !open);
@@ -54,27 +58,30 @@ public class ChatReasonEntryScrollContainer extends ElementListWidget.Entry<Chat
     }
 
     @Override
-    public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
+    public void render(DrawContext context, int index, int y, boolean hovered, float tickDelta) {
 
         MinecraftClient client = MinecraftClient.getInstance();
 
+        int x = parent.getRowLeft();
+        int entryWidth = 145;
+
         //background first
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), x, y, 145, 13, ColorHelper.fromFloats(1.0f, 0.5f, 0.5f, 1.0f));
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), x, y, entryWidth, 13, ColorHelper.fromFloats(1.0f, 0.5f, 0.5f, 1.0f));
 
         //arrow
         openWidget.setX(x + 1);
         openWidget.setY(y);
-        openWidget.render(context, mouseX, mouseY, tickDelta);
+        openWidget.render(context, 0, 0, tickDelta);
 
         //dialogue up also with Pipelines
         context.drawTextWithShadow(client.textRenderer, String.valueOf(chatReason.getName()), x + 15, y + 3, 0xFFFFFFFF);
 
         //entrys
         if (open) {
-            int i = 15;
+            int offsetY = 15;
             for (DialogueRowEntry entry : entries) {
-                entry.render(context, index, y + i, x, 110, 12, mouseX, mouseY, hovered, tickDelta);
-                i += 15;
+                entry.render(context, index, y + offsetY, hovered, tickDelta);
+                offsetY += 15;
             }
         }
     }
@@ -83,30 +90,27 @@ public class ChatReasonEntryScrollContainer extends ElementListWidget.Entry<Chat
         return 15 + (open ? (entries.size() * 15) : 0);
     }
 
-    public boolean onClick(double mouseX, double mouseY) {
-        //click on arrow
-        if (openWidget.isMouseOver(mouseX, mouseY)) {
-            openWidget.mouseClicked(mouseX, mouseY, 0);
+    public boolean handleClick(Click click, boolean isDoubleClick) {
+        if (openWidget.isMouseOver(click.x(), click.y())) {
+            openWidget.mouseClicked(click, isDoubleClick);
             return true;
         }
 
         if (!open || entries.isEmpty()) return false;
 
         for (DialogueRowEntry row : entries) {
-            if (row.mouseClicked(mouseX, mouseY, 0)) {
-                return true;
-            }
+            if (row.mouseClicked(click, isDoubleClick)) return true;
             for (AbstractDialogueEntry dialogue : row.dialogueEntryList) {
-                if (dialogue.mouseClicked(mouseX, mouseY, 0)) {
-                    return true;
-                }
+                if (dialogue.mouseClicked(click, isDoubleClick)) return true;
             }
         }
         return false;
     }
+
+
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        return this.onClick(mouseX, mouseY);
+    public boolean mouseClicked(Click click, boolean isDoubleClick) {
+        return handleClick(click, isDoubleClick);
     }
 
     public void setOpen(boolean open) {

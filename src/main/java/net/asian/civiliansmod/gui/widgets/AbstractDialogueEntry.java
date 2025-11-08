@@ -2,6 +2,7 @@ package net.asian.civiliansmod.gui.widgets;
 
 import net.asian.civiliansmod.chat.NpcChat;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.render.RenderLayer;
@@ -17,19 +18,18 @@ public class AbstractDialogueEntry extends ButtonWidget {
         this.chatReason = chatReason;
     }
 
-    public void render(DrawContext context, int x, int y, int mouseX, int mouseY, boolean hovered, float delta) {
-        int color = 0;
-        if (isMouseOver(mouseX, mouseY)) {
-            color = ColorHelper.fromFloats(0.75f, 0.75f, 0.75f, 0.75f);
-        }else{
-            color = ColorHelper.fromFloats(1.0f, 1.0f, 1.0f, 1.0f);
-        }
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), x, y, 112, 12, color);
+    @Override
+    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+        int color = isMouseOver(mouseX, mouseY)
+                ? ColorHelper.fromFloats(0.75f, 0.75f, 0.75f, 0.75f)
+                : ColorHelper.fromFloats(1.0f, 1.0f, 1.0f, 1.0f);
+
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), getX(), getY(), getWidth(), getHeight(), color);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (this.active && this.visible && this.isMouseOver(mouseX, mouseY)) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        if (this.active && this.visible && this.isMouseOver(click.x(), click.y())) {
             this.onPress.onPress(this);
             return true;
         }

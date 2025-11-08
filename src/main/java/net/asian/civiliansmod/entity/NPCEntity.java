@@ -51,6 +51,8 @@ import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
@@ -99,18 +101,24 @@ public class NPCEntity extends PathAwareEntity {
         updateDialoguesTicks = 10;
     }
 
-    @Override
-    public Packet<ClientPlayPacketListener> createSpawnPacket() {
+    public net.minecraft.network.packet.Packet<?> getSpawnPacket() {
         if (this.skinManager.skinByteArray == null) {
-            for (ServerPlayerEntity player : Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
-                ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), this.skinManager.baseVariant));
+            for (net.minecraft.server.network.ServerPlayerEntity player : java.util.Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
+                net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, new net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload(this.getId(), this.skinManager.baseVariant));
             }
         } else {
-            for (ServerPlayerEntity player : Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
-                ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
+            for (net.minecraft.server.network.ServerPlayerEntity player : java.util.Objects.requireNonNull(this.getEntityWorld().getServer()).getPlayerManager().getPlayerList()) {
+                net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking.send(player, new net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
             }
         }
-        return new EntitySpawnS2CPacket(this);
+
+        if (!(this.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld serverWorld)) {
+            net.asian.civiliansmod.CiviliansMod.LOGGER.warn("[CiviliansMod] getSpawnPacket() called clientside for {}", this.getName().getString());
+            return null;
+        }
+
+        net.minecraft.util.math.BlockPos pos = this.getBlockPos();
+        return new net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket(this, 0, pos);
     }
 
     public NPCEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
@@ -752,17 +760,12 @@ public class NPCEntity extends PathAwareEntity {
         byte[] skinByteArray;
 
         SkinIdentifier skinIdentifier;
-
         public void setBaseVariant(int baseVariant) {
             this.baseVariant = baseVariant;
         }
-
         int baseVariant;
-
         boolean slim;
-
         NPCEntity npcEntity;
-
         boolean defaultSkin;
 
         public SkinManager(NPCEntity npcEntity) {
@@ -804,6 +807,12 @@ public class NPCEntity extends PathAwareEntity {
 
         void writeView(WriteView writeView) {
             writeView.putInt("basevariat", baseVariant);
+            writeView.putBoolean("slim", slim);
+            writeView.putBoolean("defaultSkin", defaultSkin);
+            if (skinIdentifier != null) {
+                writeView.putString("skinIdentifier", skinIdentifier.toString());
+            }
+
             if (skinByteArray != null) {
                 writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
             }
@@ -811,11 +820,24 @@ public class NPCEntity extends PathAwareEntity {
 
         void readNbt(ReadView readView) {
             this.baseVariant = readView.getInt("basevariat", 0);
+            this.slim = readView.getBoolean("slim", false);
+            this.defaultSkin = readView.getBoolean("defaultSkin", true);
+
             Optional<Skin> skin = readView.read("skin", Skin.CODEC);
             skin.ifPresent(skin1 -> this.skinByteArray = skin1.skin);
+
+            String id = readView.getString("skinIdentifier", null);
+            if (id != null && !id.isEmpty()) {
+                try {
+                    this.skinIdentifier = new SkinIdentifier(Identifier.of(id), this.slim, !this.defaultSkin);
+                } catch (Exception e) {
+                    CiviliansMod.LOGGER.warn("[CiviliansMod] Invalid skinIdentifier in NBT: {}", id);
+                    this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+                }
+            } else {
+                this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+            }
         }
-
-
 
         public void setSlim(boolean slim) {
             this.slim = slim;

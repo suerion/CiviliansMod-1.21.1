@@ -2,6 +2,7 @@ package net.asian.civiliansmod.gui.widgets;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.render.RenderLayer;
@@ -26,8 +27,8 @@ public class DeleteWidget extends ButtonWidget {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (this.isMouseOver(mouseX, mouseY)) {
+    public boolean mouseClicked(Click click, boolean doubled) {
+        if (this.isMouseOver(click.x(), click.y())) {
             this.onPress.onPress(this);
             return true;
         }

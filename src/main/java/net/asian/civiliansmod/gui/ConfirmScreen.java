@@ -41,10 +41,13 @@ public class ConfirmScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        renderBackground(context, mouseX, mouseY, delta);
         super.render(context, mouseX, mouseY, delta);
         int x = width / 2;
         int y = height / 2;
-        text.drawCenter(context, x, y - 6);
+
+        // New Draw with Alignment!
+        text.draw(context, MultilineText.Alignment.CENTER, x, y - 6, 10, true, color);
     }
 
     @Override

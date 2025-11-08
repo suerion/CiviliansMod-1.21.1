@@ -1,5 +1,6 @@
 package net.asian.civiliansmod.gui;
 
+
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
@@ -15,7 +16,6 @@ import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.client.gui.Click;
 import net.minecraft.client.render.entity.EntityRenderManager;
 import net.minecraft.client.render.entity.EntityRenderer;
-import net.minecraft.client.render.entity.EntityRendererFactories;
 import net.minecraft.client.render.entity.state.EntityRenderState;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.storage.NbtWriteView;
@@ -35,6 +35,8 @@ import java.util.List;
 
 public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     private final NPCEntity npc;
+    private NPCEntity previewCenter;
+    private final List<NPCEntity> previewList = new ArrayList<>();
 
     // Layout constants
     private static final int ENTITY_PREVIEW_SIZE = 25; // Downscaled preview
@@ -188,6 +190,13 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     @Override
     protected void init() {
         super.init();
+        previewCenter = createBaseCenterPreviewNPC();
+        previewList.clear();
+        for (int i = 0; i < toRender.size(); i++) {
+            NPCEntity e = createPreviewNPC(toRender.get(i));
+            previewList.add(e);
+        }
+
 
         int containerWidth = 256;
         int containerHeight = 166;
@@ -295,6 +304,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         }
 
         super.close();
+        previewList.clear();
+        previewCenter = null;
     }
 
     private void renderVanillaScrollBar(DrawContext context) {
@@ -339,9 +350,9 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                     this.selectedVariantIndex = toRender.get(clickedVariant);
                 this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex));
 
-                if (!NPCUtil.getNPCTexture(clickedVariant).custom())
+                if (!NPCUtil.getNPCTexture(selectedVariantIndex).custom()) {
                     this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
-
+                }
                 try (ErrorReporter.Logging logging =
                              new ErrorReporter.Logging(npc.getErrorReporterContext(), CiviliansMod.LOGGER)) {
                     NbtWriteView nbtWriteView = NbtWriteView.create(logging, npc.getRegistryManager());
@@ -372,7 +383,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         int minIndex = Math.min(toRender.size() - this.startVariantIndex, 9);
 
         // Loop through all rendered variants
-        for (int i = 0; i <= minIndex; i++) {
+        for (int i = 0; i < minIndex; i++) {
             // Current variant's row and column
             int rowIndex = (i) / 3; // Determine row
             int columnIndex = (i) % 3; // Determine column
@@ -399,15 +410,15 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
 
     private void renderCenterPreview(DrawContext context, int mouseX, int mouseY) {
+        if (previewCenter == null) {
+            previewCenter = createBaseCenterPreviewNPC();
+        }
         // Determine which skin/variant to preview
         int variantToRender = (selectedVariantIndex == -1) ? originalVariant : selectedVariantIndex;
-
-        NPCEntity previewNPC;
-        if (originalVariant == -1) {
-            previewNPC = createBaseCenterPreviewNPC();
-        } else {
-            previewNPC = createCenterPreviewNPC(variantToRender);
+        if (variantToRender >= 0 && variantToRender < NPCUtil.getSkins().size()) {
+            previewCenter.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variantToRender));
         }
+        NPCEntity previewNPC = previewCenter;
 
         //Disable AI and Silent
         previewNPC.setAiDisabled(true);
@@ -527,7 +538,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     }
 
     private void renderVariantPreview(DrawContext context, int x, int y, int variantIndex, int mouseX, int mouseY) {
-        NPCEntity previewNPC = createPreviewNPC(variantIndex);
+        if (variantIndex >= previewList.size()) return;
+        NPCEntity previewNPC = previewList.get(variantIndex);
 
         // Container dimensions
         int containerWidth = 256;
@@ -644,7 +656,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
     }
 
-
+    @SuppressWarnings({ "rawtypes", "unchecked" })
     private void renderCaptured(
             EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer,
             LivingEntity living,
@@ -653,8 +665,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
             MinecraftClient client,
             boolean isPreview) {
 
-        EntityRenderState state = renderer.createRenderState();
-        renderer.updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
+        EntityRenderState state = ((EntityRenderer) renderer).createRenderState();
+        ((EntityRenderer) renderer).updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
 
         Vector3f translation = new Vector3f(0f, 0f, 0f);
         Quaternionf rotation = new Quaternionf();
@@ -671,6 +683,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         Quaternionf cameraAngle = new Quaternionf().rotateX((float) Math.toRadians(15f));
 
         context.addEntity(state, scale, translation, rotation, cameraAngle,
-                x - scale, y - (int)(scale * 2.5f), x + scale, y + (int)(scale * 2.5f));
+                x - scale, y - (int) (scale * 2.5f), x + scale, y + (int) (scale * 2.5f));
     }
 }

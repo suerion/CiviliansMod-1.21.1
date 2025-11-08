@@ -8,6 +8,7 @@ import net.asian.civiliansmod.gui.widgets.TextButtonWidget;
 import net.asian.civiliansmod.util.DebugUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
@@ -82,12 +83,6 @@ public class CustomChatScreen extends AbstractConfigScreen {
     }
 
     @Override
-    public boolean mouseScrolled(double d, double e, double f, double g) {
-        chatScrollWidget.mouseScrolled(d, e, f, g);
-        return super.mouseScrolled(d, e, f, g);
-    }
-
-    @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         super.render(context, mouseX, mouseY, delta);
         if (chatScrollWidget != null && screenInitialized) {
@@ -105,11 +100,19 @@ public class CustomChatScreen extends AbstractConfigScreen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY) {
-        if (chatScrollWidget != null && chatScrollWidget.mouseClicked(mouseX, mouseY)) {
+    public boolean mouseClicked(Click click, boolean isDoubleClick) {
+        if (chatScrollWidget != null && chatScrollWidget.mouseClicked(click, isDoubleClick)) {
             return true;
         }
-        return super.mouseClicked(mouseX, mouseY);
+        return super.mouseClicked(click, isDoubleClick);
+    }
+
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double horizontal, double vertical) {
+        if (chatScrollWidget != null) {
+            chatScrollWidget.mouseScrolled(mouseX, mouseY, horizontal, vertical);
+        }
+        return super.mouseScrolled(mouseX, mouseY, horizontal, vertical);
     }
 
     //after close reset the screen is initialized

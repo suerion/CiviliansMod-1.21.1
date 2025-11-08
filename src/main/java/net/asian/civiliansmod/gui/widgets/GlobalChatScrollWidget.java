@@ -5,6 +5,7 @@ import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.gui.CustomChatScreen;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.util.math.MathHelper;
@@ -21,9 +22,6 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
         this.npc = npc;
         this.screen = screen;
         this.customMode = customMode;
-        npc.getChatManager().getTranslatedDialogues(minecraftClient.getLanguageManager().getLanguage()).forEach((chatReason, strings) -> {
-            this.children().add(new ChatReasonEntryScrollContainer(npc, chatReason, strings, screen, customMode));
-        });
 
         this.setPosition(x, y);
         refreshChildren();
@@ -34,7 +32,7 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
     }
 
     public void refreshChildren() {
-        this.children().clear();
+        this.clearEntries();
         String language = MinecraftClient.getInstance().getLanguageManager().getLanguage();
 
         var dialoguesMap = customMode
@@ -44,13 +42,13 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
         dialoguesMap.forEach((chatReason, strings) -> {
             // add allways
             if (strings == null) strings = new ArrayList<>();
-            this.children().add(new ChatReasonEntryScrollContainer(npc, chatReason, strings, screen, customMode));
+            this.addEntry(new ChatReasonEntryScrollContainer(this, npc, chatReason, strings, screen, customMode));
         });
 
         // add placeholder
         if (dialoguesMap.isEmpty() && customMode) {
             for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
-                this.children().add(new ChatReasonEntryScrollContainer(npc, reason, new ArrayList<>(), screen, true));
+                addEntry(new ChatReasonEntryScrollContainer(this, npc, reason, new ArrayList<>(), screen, true));
             }
         }
     }
@@ -72,6 +70,8 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
             int contentHeight = getTotalContentHeight();
             int visibleHeight = this.height;
 
+            if (contentHeight <= 0 || visibleHeight <= 0) return;
+
             int scrollbarHeight = (int) ((float) visibleHeight * visibleHeight / (float) contentHeight);
             scrollbarHeight = MathHelper.clamp(scrollbarHeight, 32, visibleHeight - 8);
 
@@ -83,7 +83,6 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
             context.fill(scrollbarX, scrollY - 2, scrollbarX + 3, scrollY + scrollbarHeight, 0xFFAAAAAA);
         }
     }
-
 
     protected int getEntryTop(int index) {
         int y = this.getY() - (int) this.getScrollY();
@@ -98,20 +97,13 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
     }
 
     protected void renderList(DrawContext context, int mouseX, int mouseY, float delta) {
-        int rowLeft = this.getRowLeft();
-        int rowWidth = this.getRowWidth();
-        int entryCount = this.getEntryCount();
-
         int y = this.getY() - (int) this.getScrollY();
-        for (int i = 0; i < entryCount; i++) {
+        for (int i = 0; i < this.children().size(); i++) {
             ChatReasonEntryScrollContainer entry = this.children().get(i);
-            int entryHeight = entry.getHeight();
-
-            if (y + entryHeight >= this.getY() && y <= this.getBottom()) {
-                this.renderEntry(context, mouseX, mouseY, delta, i, rowLeft, y, rowWidth, entryHeight);
+            if (y + entry.getHeight() >= this.getY() && y <= this.getBottom()) {
+                this.renderEntry(context, i, y, delta, entry);
             }
-
-            y += entryHeight;
+            y += entry.getHeight();
         }
     }
 
@@ -127,7 +119,7 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
 
     @Override
     public int getMaxScrollY() {
-        return getTotalContentHeight() - this.getHeight();
+        return Math.max(0, getTotalContentHeight() - this.getHeight());
     }
 
     @Override
@@ -136,31 +128,14 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
     }
 
     @Override
-    public void onClick(double mouseX, double mouseY) {
-        this.children().forEach(dialogueEntryScrollContainer -> {
-            if (dialogueEntryScrollContainer.onClick(mouseX, mouseY)) {
-                return;
-            }
-            if (dialogueEntryScrollContainer.open) {
-                dialogueEntryScrollContainer.entries.forEach(entry -> {
-                    entry.dialogueEntryList.forEach(dialogueEntry -> {
-                        dialogueEntry.onClick(mouseX, mouseY);
-                    });
-                });
-            }
-        });
-    }
-
-    @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (!this.isMouseOver(mouseX, mouseY)) return false;
+    public boolean mouseClicked(Click click, boolean isDoubleClick) {
+        if (!this.isMouseOver(click.x(), click.y())) return false;
 
         for (ChatReasonEntryScrollContainer container : this.children()) {
-            if (container.mouseClicked(mouseX, mouseY, button)) {
+            if (container.handleClick(click, isDoubleClick)) {
                 return true;
             }
         }
-
         return false;
     }
 }

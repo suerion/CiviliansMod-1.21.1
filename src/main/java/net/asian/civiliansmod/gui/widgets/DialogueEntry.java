@@ -9,6 +9,7 @@ import net.asian.civiliansmod.networking.payload.npc.dialogue.RemoveDialoguePayl
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.MultilineText;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.text.Text;
@@ -47,19 +48,13 @@ public class DialogueEntry extends AbstractDialogueEntry {
     }
 
     @Override
-    protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.renderWidget(context, mouseX, mouseY, delta);
-    }
-
-    @Override
-    public void render(DrawContext context, int x, int y, int mouseX, int mouseY, boolean hovered, float delta) {
-
+    public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
         //draw layour
-        super.render(context, x, y, mouseX, mouseY, hovered, delta);
+        super.renderWidget(context, mouseX, mouseY, delta);
 
         //delete button
-        deleteWidget.setX(x + width - 12);
-        deleteWidget.setY(y + 1);
+        deleteWidget.setX(getX() + getWidth() - 12);
+        deleteWidget.setY(getY() + 1);
 
         //get text
         MinecraftClient client = MinecraftClient.getInstance();
@@ -68,18 +63,18 @@ public class DialogueEntry extends AbstractDialogueEntry {
                 + (client.textRenderer.getWidth(dialogue) > maxWidth ? "..." : "");
 
         //draw dialouge
-        context.drawTextWithShadow(client.textRenderer, textToDraw, x + 4, y + 3, 0xFFFFFFFF);
+        context.drawTextWithShadow(client.textRenderer, textToDraw, getX() + 4, getY() + 3, 0xFFFFFFFF);
 
         deleteWidget.render(context, mouseX, mouseY, delta);
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (deleteWidget.isMouseOver(mouseX, mouseY)) {
-            deleteWidget.mouseClicked(mouseX, mouseY, button);
+    public boolean mouseClicked(Click click, boolean isDoubleClick) {
+        if (deleteWidget.isMouseOver(click.x(), click.y())) {
+            deleteWidget.mouseClicked(click, false);
             return true;
-        }
-        if (this.isMouseOver(mouseX, mouseY)) {
+            }
+        if (this.isMouseOver(click.x(), click.y())) {
             this.onPress.onPress(this);
             return true;
         }
