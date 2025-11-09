@@ -59,7 +59,13 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
             }
 
             if (entityById instanceof NPCEntity npcEntity) {
-                npcEntity.getSkinManager().setIdSkin(skin1);
+                // only if skin is not loaded from WOrld
+                if (!npcEntity.getSkinManager().isLoadedFromData()) {
+                    npcEntity.getSkinManager().setIdSkin(skin1);
+                    CiviliansMod.LOGGER.debug("[CiviliansMod] Applied custom skin payload for NPC {} ({} bytes)", npcId, skin.length);
+                } else {
+                    CiviliansMod.LOGGER.debug("[CiviliansMod] Ignored custom skin payload for NPC {} (already loaded from NBT)", npcId);
+                }
             }
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("error while converting skin files");

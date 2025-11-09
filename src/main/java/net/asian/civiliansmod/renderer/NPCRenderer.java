@@ -67,7 +67,21 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     @Override
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
-        livingEntityRenderState.texture = livingEntity.getSkinManager().getIdSkin().id();
-        livingEntityRenderState.slim = livingEntity.getSkinManager().getIdSkin().slim();
+
+        var skinManager = livingEntity.getSkinManager();
+        var id = skinManager.getIdSkin();
+
+        if (id != null) {
+            livingEntityRenderState.texture = id.id();
+            livingEntityRenderState.slim = id.slim();
+        } else {
+            // fallback
+            var fallback = net.asian.civiliansmod.util.NPCUtil.getNPCTexture(skinManager.getBaseVariant());
+            livingEntityRenderState.texture = fallback.id();
+            livingEntityRenderState.slim = fallback.slim();
+
+            net.asian.civiliansmod.CiviliansMod.LOGGER.warn("[CiviliansMod] Renderer fallback texture for NPC {} -> {}", livingEntity.getUuid(), fallback.id()
+            );
+        }
     }
 }

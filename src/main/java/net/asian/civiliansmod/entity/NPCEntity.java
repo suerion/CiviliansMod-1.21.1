@@ -93,9 +93,46 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
-        SkinIdentifier skinIdentifier = NPCUtil.waitingSync.get(this.getId());
-        if (skinIdentifier != null) {
-            this.skinManager.setIdSkin(skinIdentifier);
+
+        if (this.skinManager.isLoadedFromData() && this.skinManager.getIdSkin() != null) {
+            CiviliansMod.LOGGER.debug("[CiviliansMod] Skin already loaded for NPC {}, skipping sync apply", this.getId());
+            return;
+        }
+
+        SkinIdentifier pending = NPCUtil.waitingSync.get(this.getId());
+        if (pending != null) {
+            this.skinManager.setIdSkin(pending);
+            this.skinManager.loadedFromData = true;
+            NPCUtil.waitingSync.remove(this.getId());
+            CiviliansMod.LOGGER.debug("[CiviliansMod] Applied synced skin for NPC {}", this.getId());
+            return;
+        }
+
+        if (this.getEntityWorld().isClient()) {
+            MinecraftClient client = MinecraftClient.getInstance();
+
+            if (client.isIntegratedServerRunning() && client.getServer() != null) {
+                var server = client.getServer();
+                var worldKey = this.getEntityWorld() != null ? this.getEntityWorld().getRegistryKey() : null;
+
+                if (worldKey != null) {
+                    var serverWorld = server.getWorld(worldKey);
+                    if (serverWorld != null) {
+                        var serverEntity = serverWorld.getEntity(this.getUuid());
+                        if (serverEntity instanceof NPCEntity serverNpc) {
+                            var serverSkin = serverNpc.getSkinManager().getIdSkin();
+                            if (serverSkin != null) {
+                                this.skinManager.setIdSkin(serverSkin);
+                                this.skinManager.loadedFromData = true;
+                                CiviliansMod.LOGGER.debug(
+                                        "[CiviliansMod] Copied skin from server instance for NPC {} -> {}",
+                                        this.getId(), serverSkin.id()
+                                );
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         updateDialoguesTicks = 10;
@@ -181,7 +218,7 @@ public class NPCEntity extends PathAwareEntity {
 
         this.chatManager.setFromReadView(readView);
 
-        this.skinManager.readNbt(readView);
+        this.skinManager.readView(readView);
     }
 
 
@@ -315,12 +352,14 @@ public class NPCEntity extends PathAwareEntity {
 
     @Environment(EnvType.CLIENT)
     public void openCustomNPCScreen() {
-        if (skinManager.slim && skinManager.defaultSkin) {
-            MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this));
-        } else if (skinManager.defaultSkin) {
-            MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this));
-        } else {
+        if (skinManager.skinByteArray != null && skinManager.skinByteArray.length > 0 && !skinManager.defaultSkin) {
             MinecraftClient.getInstance().setScreen(new CustomNPCScreen(this));
+            return;
+        }
+        if (skinManager.slim) {
+            MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this));
+        } else {
+            MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this));
         }
     }
 
@@ -761,22 +800,48 @@ public class NPCEntity extends PathAwareEntity {
 
         SkinIdentifier skinIdentifier;
         public void setBaseVariant(int baseVariant) {
+            //no reset if skin is not loaded
+            if (!this.loadedFromData && npcEntity.getEntityWorld().isClient()) {
+                CiviliansMod.LOGGER.warn("[CiviliansMod] Prevented client-side variant reset before data load for NPC {}", npcEntity.getUuid());
+                return;
+            }
             this.baseVariant = baseVariant;
+            this.slim = baseVariant > 43;
+            this.defaultSkin = true;
+            this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+
+            CiviliansMod.LOGGER.info(
+                    "[CiviliansMod] Updated baseVariant for NPC {} -> {} (id: {})",
+                    npcEntity.getUuid(), baseVariant, this.skinIdentifier.id()
+            );
+
+            if (this.skinIdentifier == null) {
+                this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+            }
+
+            CiviliansMod.LOGGER.info(
+                    "[CiviliansMod] Updated baseVariant for NPC {} -> {} (id: {})",
+                    npcEntity.getUuid(), baseVariant, this.skinIdentifier.id()
+            );
+
+            // if on server, save now
+            if (!npcEntity.getEntityWorld().isClient()) {
+                npcEntity.saveNow();
+            }
         }
         int baseVariant;
         boolean slim;
         NPCEntity npcEntity;
         boolean defaultSkin;
+        boolean loadedFromData = false;
+
+        public boolean isLoadedFromData() {
+            return this.loadedFromData;
+        }
 
         public SkinManager(NPCEntity npcEntity) {
             this.npcEntity = npcEntity;
-            this.defaultSkin = true;
-            this.baseVariant = npcEntity.random.nextInt(88);
-            if (baseVariant <= 43) {
-                this.slim = false;
-            } else {
-                this.slim = true;
-            }
+
             if (npcEntity.nameManager != null) {
                 npcEntity.nameManager.setRandomName(this.slim);
             } else {
@@ -792,12 +857,35 @@ public class NPCEntity extends PathAwareEntity {
             this.skinByteArray = skinByteArray;
         }
 
-        @Environment(EnvType.CLIENT)
         public void setIdSkin(SkinIdentifier skin) {
+
             this.skinIdentifier = skin;
+            this.loadedFromData = true;
+
+            int index = NPCUtil.getSkins().indexOf(skin);
+            if (index >= 0) {
+                // Standard skin
+                this.defaultSkin = true;
+                setBaseVariant(index);
+            } else {
+                // Custom skin
+                this.defaultSkin = false;
+                CiviliansMod.LOGGER.info(
+                        "[CiviliansMod] Set custom skin for NPC {} -> {}",
+                        npcEntity.getUuid(), skin.id()
+                );
+
+                if (!npcEntity.getEntityWorld().isClient()) {
+                    npcEntity.saveNow();
+                }
+            }
+
+            CiviliansMod.LOGGER.debug(
+                    "[CiviliansMod] Set new skin for NPC {} -> {} (index: {}, slim: {})",
+                    npcEntity.getUuid(), skin.id(), this.baseVariant, this.slim
+            );
         }
 
-        @Environment(EnvType.CLIENT)
         public SkinIdentifier getIdSkin() {
             if (this.skinIdentifier == null) {
                 return NPCUtil.getNPCTexture(baseVariant);
@@ -806,25 +894,36 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         void writeView(WriteView writeView) {
-            writeView.putInt("basevariat", baseVariant);
-            writeView.putBoolean("slim", slim);
-            writeView.putBoolean("defaultSkin", defaultSkin);
-            if (skinIdentifier != null) {
-                writeView.putString("skinIdentifier", skinIdentifier.toString());
+            writeView.putInt("basevariant", this.baseVariant);
+            writeView.putBoolean("slim", this.slim);
+            writeView.putBoolean("defaultSkin", this.defaultSkin);
+
+            if (this.skinIdentifier != null) {
+                writeView.putString("skinIdentifier", this.skinIdentifier.id().toString());
             }
 
-            if (skinByteArray != null) {
-                writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
+            if (this.skinByteArray != null && this.skinByteArray.length > 0 && !this.defaultSkin) {
+                writeView.put("skin", Skin.CODEC, new Skin(this.skinByteArray));
+                CiviliansMod.LOGGER.info("[CiviliansMod] Saved custom skin for NPC {} ({} bytes)", npcEntity.getUuid(), this.skinByteArray.length);
+            } else {
+                CiviliansMod.LOGGER.debug("[CiviliansMod] No custom skin to save for NPC {} (defaultSkin={}, bytes={})", npcEntity.getUuid(), this.defaultSkin,
+                        (this.skinByteArray != null ? this.skinByteArray.length : 0));
             }
         }
 
-        void readNbt(ReadView readView) {
-            this.baseVariant = readView.getInt("basevariat", 0);
+        void readView(ReadView readView) {
+            if (this.loadedFromData) {
+                CiviliansMod.LOGGER.debug("[CiviliansMod] Skipping readView() for NPC {} — data already loaded", npcEntity.getUuid());
+                return;
+            }
+
+            this.baseVariant = readView.getInt("basevariant", -1);
             this.slim = readView.getBoolean("slim", false);
             this.defaultSkin = readView.getBoolean("defaultSkin", true);
 
             Optional<Skin> skin = readView.read("skin", Skin.CODEC);
             skin.ifPresent(skin1 -> this.skinByteArray = skin1.skin);
+
 
             String id = readView.getString("skinIdentifier", null);
             if (id != null && !id.isEmpty()) {
@@ -832,15 +931,81 @@ public class NPCEntity extends PathAwareEntity {
                     this.skinIdentifier = new SkinIdentifier(Identifier.of(id), this.slim, !this.defaultSkin);
                 } catch (Exception e) {
                     CiviliansMod.LOGGER.warn("[CiviliansMod] Invalid skinIdentifier in NBT: {}", id);
-                    this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+                    this.skinIdentifier = null;
                 }
-            } else {
+            }
+
+            if (this.baseVariant < 0) {
+                this.defaultSkin = true;
+                this.baseVariant = npcEntity.random.nextInt(88);
+                this.slim = this.baseVariant > 43;
                 this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+                CiviliansMod.LOGGER.info("[CiviliansMod] Randomized new skin for NPC {}", npcEntity.getUuid());
+            } else if (this.skinIdentifier == null && this.defaultSkin) {
+                this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+                CiviliansMod.LOGGER.debug("[CiviliansMod] Restored missing SkinIdentifier for NPC {} (variant {})",
+                        npcEntity.getUuid(), this.baseVariant);
+            }
+
+            if (this.defaultSkin && this.skinIdentifier != null && !this.skinIdentifier.custom()) {
+                SkinIdentifier expected = NPCUtil.getNPCTexture(this.baseVariant);
+                if (!this.skinIdentifier.id().equals(expected.id())) {
+                    CiviliansMod.LOGGER.warn(
+                            "[CiviliansMod] Correcting mismatched SkinIdentifier for NPC {}: {} -> {}",
+                            npcEntity.getUuid(), this.skinIdentifier.id(), expected.id()
+                    );
+                    this.skinIdentifier = expected;
+                }
+            }
+
+            if (!this.defaultSkin) {
+                CiviliansMod.LOGGER.debug(
+                        "[CiviliansMod] NPC {} should use a custom skin ({} bytes)",
+                        npcEntity.getUuid(),
+                        (this.skinByteArray != null ? this.skinByteArray.length : 0)
+                );
+            }
+
+            this.loadedFromData = true;
+
+            CiviliansMod.LOGGER.info(
+                    "[CiviliansMod] Loaded SkinManager for NPC {} -> baseVariant={}, slim={}, defaultSkin={}, skinIdentifier={}, customSkin={}",
+                    npcEntity.getUuid(),
+                    this.baseVariant,
+                    this.slim,
+                    this.defaultSkin,
+                    (this.skinIdentifier != null ? this.skinIdentifier.id() : "null"),
+                    (this.skinIdentifier != null && this.skinIdentifier.custom())
+            );
+
+            if (!this.defaultSkin && (this.skinByteArray == null || this.skinByteArray.length == 0)) {
+                CiviliansMod.LOGGER.warn("[CiviliansMod] NPC {} had customSkin=true but no skin bytes, attempting lazy load...", npcEntity.getUuid());
+                if (this.skinIdentifier != null && this.skinIdentifier.custom()) {
+                    byte[] bytes = NPCUtil.images.get(this.skinIdentifier);
+                    if (bytes != null && bytes.length > 0) {
+                        this.skinByteArray = bytes;
+                        CiviliansMod.LOGGER.info("[CiviliansMod] Lazy-loaded skin data for NPC {}", npcEntity.getUuid());
+                    } else {
+                        CiviliansMod.LOGGER.error("[CiviliansMod] Failed to lazy-load custom skin for NPC {}", npcEntity.getUuid());
+                        this.defaultSkin = true;
+                    }
+                }
+            }
+            if (npcEntity.getEntityWorld().isClient()) {
+                this.loadedFromData = true;
             }
         }
 
         public void setSlim(boolean slim) {
             this.slim = slim;
+        }
+
+        public int getBaseVariant() {
+            return this.baseVariant;
+        }
+
+        public void setDefaultSkin(boolean defaultSkin) {
+            this.defaultSkin = defaultSkin;
         }
     }
 
@@ -917,5 +1082,27 @@ public class NPCEntity extends PathAwareEntity {
             for (int i = 0; i < bytes.size(); i++) array[i] = bytes.get(i);
             return new Skin(array);
         }));
+    }
+
+    public void saveNow() {
+        if (!(this.getEntityWorld() instanceof ServerWorld serverWorld)) return;
+
+        try {
+            var chunkPos = this.getChunkPos();
+            var chunk = serverWorld.getChunk(chunkPos.x, chunkPos.z);
+
+            if (chunk != null) {
+                chunk.markNeedsSaving(); //chunk with entity need to be saved...
+                CiviliansMod.LOGGER.info("[CiviliansMod] Marked chunk for save for NPC {}", this.getUuid());
+            }
+
+        } catch (Exception e) {
+            CiviliansMod.LOGGER.error("[CiviliansMod] Failed to mark chunk for NPC save {}", this.getUuid(), e);
+        }
+    }
+
+    @Override
+    public boolean shouldSave() {
+        return true;
     }
 }

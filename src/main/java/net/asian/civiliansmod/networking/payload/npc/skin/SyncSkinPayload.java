@@ -34,8 +34,14 @@ public record SyncSkinPayload(int npcId, int id) implements CustomPayload {
             NPCUtil.waitingSync.put(npcId, NPCUtil.getNPCTexture(id));
             return;
         }
-        if(entityById instanceof NPCEntity npcEntity) {
-            npcEntity.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(id));
+        if (entityById instanceof NPCEntity npcEntity) {
+            // only if no skin loaded from world
+            if (!npcEntity.getSkinManager().isLoadedFromData()) {
+                npcEntity.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(id));
+                CiviliansMod.LOGGER.debug("[CiviliansMod] Client applied SyncSkinPayload for NPC {} -> variant {}", npcId, id);
+            } else {
+                CiviliansMod.LOGGER.debug("[CiviliansMod] Ignored SyncSkinPayload for NPC {} (already loaded from NBT)", npcId);
+            }
         }
     }
 }

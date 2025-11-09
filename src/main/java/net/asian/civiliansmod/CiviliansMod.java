@@ -5,7 +5,9 @@ import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.networking.CustomC2SNetworking;
 import net.asian.civiliansmod.networking.NetworkPayloads;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.OpenScreenDialoguesPayload;
+import net.asian.civiliansmod.util.NPCUtil;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.networking.v1.EntityTrackingEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
@@ -48,6 +50,9 @@ public class CiviliansMod implements ModInitializer {
                 }
             }
         });
-
+        ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            NPCUtil.refreshTextures();
+            CiviliansMod.LOGGER.info("[CiviliansMod] NPCUtil.images initialized on server start: {} textures loaded", NPCUtil.images.size());
+        });
     }
 }

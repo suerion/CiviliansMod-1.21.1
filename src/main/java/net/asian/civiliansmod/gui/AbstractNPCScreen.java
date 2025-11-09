@@ -7,6 +7,7 @@ import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
 import net.asian.civiliansmod.networking.NPCDataPayload;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
@@ -84,6 +85,10 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         this.defaultSkin = defaultSkin;
         this.follow = npc.isFollowing();
         this.stay = npc.isPaused();
+
+        if (this.selectedVariantIndex < 0) {
+            this.selectedVariantIndex = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
+        }
     }
 
     public AbstractNPCScreen(NPCEntity npc, int selected, int defaultSkin, int selectedVariantIndex, boolean follow, boolean stay) {
@@ -91,11 +96,15 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         this.npc = npc;
         this.selectedVariant = selected;
         toRender = getSkinsToRender();
-        this.selectedVariantIndex = selectedVariantIndex;
+        this.selectedVariantIndex = selectedVariantIndex >= 0 ? selectedVariantIndex : NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
         this.originalVariant = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin()); // Save the current variant to initialize the preview
         this.defaultSkin = defaultSkin;
         this.follow = follow;
         this.stay = stay;
+
+        if (this.selectedVariantIndex < 0) {
+            this.selectedVariantIndex = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
+        }
     }
 
     protected abstract List<Integer> getSkinsToRender();
@@ -204,16 +213,16 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         int containerY = (this.height - containerHeight) / 2;
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"),
-                button -> MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
+                button -> MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this.npc, this.selectedVariant, defaultSkin, this.selectedVariantIndex, follow, stay))
         ).dimensions(containerX + 82, containerY + 22, 39, 12).build());
 
         // Add Slim tab button
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"),
-                button -> MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
+                button -> MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this.npc, this.selectedVariant, defaultSkin, this.selectedVariantIndex, follow, stay))
         ).dimensions(containerX + 121, containerY + 22, 40, 12).build());
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"),
-                button -> MinecraftClient.getInstance().setScreen(new CustomNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
+                button -> MinecraftClient.getInstance().setScreen(new CustomNPCScreen(this.npc, this.selectedVariant, defaultSkin, this.selectedVariantIndex, follow, stay))
         ).dimensions(containerX + 161, containerY + 22, 39, 12).build());
 
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Save"), button -> {
@@ -294,14 +303,24 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                 ChangeSkinPayload payload1 = new ChangeSkinPayload(npc.getUuid(), npc.getSkinManager().getIdSkin().slim(), npc.getSkinManager().getIdSkin());
                 ClientPlayNetworking.send(payload1); // Send data to the server
             } else {
-                if (selectedVariantIndex == -1) {
-                    super.close();
-                    return;
+                int variantToSave = this.selectedVariantIndex;
+
+                // --- FIX: ensure valid variant index ---
+                if (variantToSave < 0) {
+                    int current = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
+                    if (current >= 0) {
+                        variantToSave = current;
+                    } else {
+                        variantToSave = npc.getSkinManager().getBaseVariant(); // last fallback
+                    }
                 }
-                ChangeBaseSkinPayload payload1 = new ChangeBaseSkinPayload(npc.getUuid(), selectedVariantIndex);
-                ClientPlayNetworking.send(payload1);
+
+                CiviliansMod.LOGGER.info("[CiviliansMod] Saving NPC {} with variant {}", npc.getUuid(), variantToSave);
+                ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), variantToSave));
             }
         }
+        CiviliansMod.LOGGER.debug("[CiviliansMod] Closed screen for NPC {} | finalSkin={} | variantIndex={}",
+                npc.getUuid(), npc.getSkinManager().getIdSkin().id(), this.selectedVariantIndex);
 
         super.close();
         previewList.clear();
@@ -348,11 +367,14 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                 this.selectedVariant = clickedVariant;
                 if (clickedVariant < toRender.size())
                     this.selectedVariantIndex = toRender.get(clickedVariant);
-                this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex));
+                SkinIdentifier selectedSkin = NPCUtil.getNPCTexture(selectedVariantIndex);
 
-                if (!NPCUtil.getNPCTexture(selectedVariantIndex).custom()) {
-                    this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
+                this.npc.getSkinManager().setIdSkin(selectedSkin);
+
+                if (previewCenter != null) {
+                    previewCenter.getSkinManager().setIdSkin(selectedSkin);
                 }
+
                 try (ErrorReporter.Logging logging =
                              new ErrorReporter.Logging(npc.getErrorReporterContext(), CiviliansMod.LOGGER)) {
                     NbtWriteView nbtWriteView = NbtWriteView.create(logging, npc.getRegistryManager());
@@ -414,10 +436,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
             previewCenter = createBaseCenterPreviewNPC();
         }
         // Determine which skin/variant to preview
-        int variantToRender = (selectedVariantIndex == -1) ? originalVariant : selectedVariantIndex;
-        if (variantToRender >= 0 && variantToRender < NPCUtil.getSkins().size()) {
-            previewCenter.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variantToRender));
-        }
         NPCEntity previewNPC = previewCenter;
 
         //Disable AI and Silent
@@ -597,7 +615,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
         //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(toRender.get(variantIndex)));
+        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variantIndex));
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -631,7 +649,11 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
         //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(npc.getSkinManager().getIdSkin());
+        var currentSkin = npc.getSkinManager().getIdSkin();
+        if (currentSkin == null) {
+            currentSkin = NPCUtil.getNPCTexture(0);
+        }
+        previewNPC.getSkinManager().setIdSkin(currentSkin);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -646,11 +668,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         if (!(entity instanceof LivingEntity living)) return;
 
         MinecraftClient client = MinecraftClient.getInstance();
-
-
         EntityRenderManager manager = client.getEntityRenderDispatcher();
-        EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer =
-                manager.getRenderer(living);
+        EntityRenderer renderer = manager.getRenderer(living);
 
         boolean isPreview = (scale > 30);
         renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
@@ -668,6 +687,11 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         EntityRenderState state = ((EntityRenderer) renderer).createRenderState();
         ((EntityRenderer) renderer).updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
 
+        state.light = 15728880;
+        state.hitbox = null;
+        state.outlineColor = 0;
+        state.shadowPieces.clear();
+
         Vector3f translation = new Vector3f(0f, 0f, 0f);
         Quaternionf rotation = new Quaternionf();
 
@@ -683,6 +707,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         Quaternionf cameraAngle = new Quaternionf().rotateX((float) Math.toRadians(15f));
 
         context.addEntity(state, scale, translation, rotation, cameraAngle,
-                x - scale, y - (int) (scale * 2.5f), x + scale, y + (int) (scale * 2.5f));
+                x - scale, y - (int)(scale * 2.5f), x + scale, y + (int)(scale * 2.5f));
     }
 }

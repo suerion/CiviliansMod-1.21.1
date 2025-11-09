@@ -43,15 +43,27 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
     }
 
     public void handlePacket(ServerPlayNetworking.Context context) {
-        if (skin == null || skin.length == 0) return;
-        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
-        if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
-        //if (skin.length != 16384) return;
-        entity.getSkinManager().setSkinByteArray(skin);
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            if (player.getUuid().equals(context.player().getUuid())) continue;
-
-            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin));
+        if (skin == null || skin.length == 0) {
+            CiviliansMod.LOGGER.warn("[CiviliansMod] Received empty skin data for NPC {}", npcUuid);
+            return;
         }
+        if (!(context.player().getEntityWorld() instanceof ServerWorld world)) return;
+        context.server().execute(() -> {
+            if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
+
+            entity.getSkinManager().setSkinByteArray(skin);
+            entity.getSkinManager().setSlim(slim);
+            entity.getSkinManager().setDefaultSkin(false); // save as custom skin
+
+            entity.saveNow(); // save now
+
+            CiviliansMod.LOGGER.info("[CiviliansMod] Applied custom skin to NPC {} ({} bytes, slim={})",
+                    npcUuid, skin.length, slim);
+
+            for (ServerPlayerEntity player : world.getPlayers()) {
+                if (player.getUuid().equals(context.player().getUuid())) continue;
+                ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin));
+            }
+        });
     }
 }

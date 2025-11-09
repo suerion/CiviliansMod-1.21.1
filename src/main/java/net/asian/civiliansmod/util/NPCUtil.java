@@ -72,20 +72,36 @@ public class NPCUtil {
         }
     }
 
-    public static SkinIdentifier getNPCTexture(int texture) {
+    public static SkinIdentifier getNPCTexture(int variant) {
         if (skins.isEmpty()) {
             CiviliansMod.LOGGER.error("Tried to get NPC skin but no skins are loaded!");
             return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, true);
         }
 
-        if (texture < 0 || texture >= skins.size()) {
-            CiviliansMod.LOGGER.warn("Invalid skin index {} (skins.size = {}). Using 0 as fallback.", texture, skins.size());
-            texture = 0;
+        // we get 44 (0-43) wide and 44 (44-87) slim, then custom skins.
+        boolean slim = variant > 43;
+        int index = slim ? variant - 44 : variant;
+
+        int wideCount = (int) skins.stream().filter(s -> !s.slim()).count();
+        int slimCount = (int) skins.stream().filter(SkinIdentifier::slim).count();
+
+        // check if skins get out of bound
+        if (!slim && index >= wideCount) index = wideCount - 1;
+        if (slim && index >= slimCount) index = slimCount - 1;
+        if (index < 0) index = 0;
+
+        // global index, wide then slim
+        int globalIndex = slim ? wideCount + index : index;
+
+        //check if skin issues
+        if (globalIndex < 0 || globalIndex >= skins.size()) {
+            CiviliansMod.LOGGER.warn("[CiviliansMod] Invalid skin index {} (globalIndex {} / total {}). Fallback to 0.",
+                    variant, globalIndex, skins.size());
+            globalIndex = 0;
         }
 
-        return skins.get(texture);
+        return skins.get(globalIndex);
     }
-
 
     /**
      * method to refresh all the npc textures.
