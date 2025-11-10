@@ -669,24 +669,38 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         MinecraftClient client = MinecraftClient.getInstance();
         EntityRenderManager manager = client.getEntityRenderDispatcher();
-        EntityRenderer renderer = manager.getRenderer(living);
+
+        EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer =
+                (EntityRenderer<? super LivingEntity, ? extends EntityRenderState>) manager.getRenderer(living);
+
 
         boolean isPreview = (scale > 30);
         renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
     }
 
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    private void renderCaptured(
-            EntityRenderer<? super LivingEntity, ? extends EntityRenderState> renderer,
+    private <S extends EntityRenderState> void renderCaptured(
+            EntityRenderer<? super LivingEntity, S> renderer,
             LivingEntity living,
             DrawContext context,
             int x, int y, int scale,
             MinecraftClient client,
             boolean isPreview) {
 
-        EntityRenderState state = ((EntityRenderer) renderer).createRenderState();
-        ((EntityRenderer) renderer).updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
+        S state = renderer.createRenderState();
+        renderer.updateRenderState(living, state, client.getRenderTickCounter().getTickProgress(false));
 
+        if (isPreview && state instanceof net.minecraft.client.render.entity.state.LivingEntityRenderState ls) {
+            float headYaw = living.headYaw;
+            float pitch = living.getPitch();
+            float bodyYaw = headYaw * 0.1F;
+
+            ls.bodyYaw = bodyYaw;
+            ls.relativeHeadYaw = headYaw - bodyYaw;
+            ls.pitch = pitch;
+        }
+
+        //need in 1.21.10 because of black preview models
         state.light = 15728880;
         state.hitbox = null;
         state.outlineColor = 0;
@@ -697,14 +711,14 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         if (isPreview) {
             rotation.rotateZ((float) Math.toRadians(180f))
-                    .rotateY((float) Math.toRadians(195f))
-                    .rotateX((float) Math.toRadians(-5f));
+                    .rotateY((float) Math.toRadians(192.5f))
+                    .rotateX((float) Math.toRadians(-3.5f));
         } else {
             rotation.rotateZ((float) Math.toRadians(180f))
                     .rotateY((float) Math.toRadians(165f))
                     .rotateX((float) Math.toRadians(7f));
         }
-        Quaternionf cameraAngle = new Quaternionf().rotateX((float) Math.toRadians(15f));
+        Quaternionf cameraAngle = new Quaternionf().rotateX((float) Math.toRadians(18f));
 
         context.addEntity(state, scale, translation, rotation, cameraAngle,
                 x - scale, y - (int)(scale * 2.5f), x + scale, y + (int)(scale * 2.5f));
