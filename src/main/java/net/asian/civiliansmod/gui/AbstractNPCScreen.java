@@ -450,7 +450,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         //center preview position
         int previewX = guiX + 36;
-        int previewY = guiY + (guiHeight / 2) + 45;
+        int previewY = guiY + (guiHeight / 2) + 34;
 
         // Calculate head rotation to follow the mouse
         float deltaX = (float) (mouseX - previewX);
@@ -465,22 +465,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         targetHeadYaw = Math.max(-35.0F, Math.min(35.0F, targetHeadYaw));
         targetPitch = Math.max(-30.0F, Math.min(30.0F, targetPitch));
 
-        //old pitch = Math.max(-30.0F, Math.min(30.0F, pitch)); // Limit pitch to -30 to +30 degrees
-
-        float smoothing = 0.15F;
-        final float DEADZONE = 0.8F;
-
-        if (Math.abs(targetHeadYaw - smoothHeadYaw) < 0.4F) targetHeadYaw = smoothHeadYaw;
-        if (Math.abs(targetPitch   - smoothPitch)   < 0.4F) targetPitch   = smoothPitch;
-
-        if (Math.abs(targetHeadYaw - smoothHeadYaw) > DEADZONE)
-            smoothHeadYaw += (targetHeadYaw - smoothHeadYaw) * 0.2F;
-
-        if (Math.abs(targetPitch - smoothPitch) > DEADZONE)
-            smoothPitch += (targetPitch - smoothPitch) * 0.2F;
-
-        if (smoothHeadYaw > 180.0F) smoothHeadYaw -= 360.0F;
-        if (smoothHeadYaw < -180.0F) smoothHeadYaw += 360.0F;
+        smoothHeadYaw += (targetHeadYaw - smoothHeadYaw) * 0.15F;
+        smoothPitch   += (targetPitch   - smoothPitch)   * 0.15F;
 
         float bodyYaw = smoothHeadYaw * 0.1F;
         previewNPC.setYaw(bodyYaw);
