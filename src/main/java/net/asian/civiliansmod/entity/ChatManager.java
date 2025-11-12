@@ -35,30 +35,26 @@ public class ChatManager {
             return custom.get(Random.create().nextInt(custom.size()));
         }
 
-        Map<NpcChat.ChatReason, List<String>> langDialogues = dialogues.get(language);
-        if (langDialogues == null || langDialogues.isEmpty()) {
-            CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})", language, npc.getId());
-            langDialogues = DefaultChat.getDefaultChat().get("en_us");
-        }
-
-        if (langDialogues == null && !dialogues.isEmpty()) {
-            langDialogues = dialogues.values().iterator().next();
-            CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
-        }
-
-        if (langDialogues == null) {
-            CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, using placeholder for NPC {}", npc.getId());
-            langDialogues = new EnumMap<>(NpcChat.ChatReason.class);
-        }
-
-        if (dialogues.isEmpty()) {
-            CiviliansMod.LOGGER.error("[CiviliansMod] Dialogue map empty, loading default dialogues for NPC {}", npc.getId());
-            dialogues.putAll(DefaultChat.getDefaultChat());
-        }
-
+        Map<NpcChat.ChatReason, List<String>> langDialogues = getDialoguesForLanguage(language);
         List<String> messages = langDialogues.getOrDefault(reason, Collections.singletonList("..."));
         if (messages.isEmpty()) messages = Collections.singletonList("...");
+
         return messages.get(Random.create().nextInt(messages.size()));
+    }
+
+    // NEW: Method for ordered dialogue
+    public String getOrderedChat(String language, NpcChat.ChatReason reason, int index) {
+        List<String> custom = customDialogues.get(reason);
+        if (custom != null && !custom.isEmpty()) {
+            return custom.get(index % custom.size());
+        }
+
+        Map<NpcChat.ChatReason, List<String>> langDialogues = getDialoguesForLanguage(language);
+        List<String> messages = langDialogues.getOrDefault(reason, Collections.singletonList("..."));
+        if (messages.isEmpty()) {
+            return "...";
+        }
+        return messages.get(index % messages.size());
     }
 
     public Map<NpcChat.ChatReason, List<String>> getDialoguesForLanguage(String language) {
@@ -82,6 +78,18 @@ public class ChatManager {
         }
         return languageMap;
     }
+    
+    // NEW: Method to remove multiple dialogues at once
+    public void removeDialogues(String language, NpcChat.ChatReason reason, List<String> dialoguesToRemove) {
+        if (this.dialogues.containsKey(language)) {
+            Map<NpcChat.ChatReason, List<String>> reasonMap = this.dialogues.get(language);
+            if (reasonMap.containsKey(reason)) {
+                reasonMap.get(reason).removeAll(dialoguesToRemove);
+                markDialoguesDirty(null); // Sync changes to clients
+            }
+        }
+    }
+
 
     public Map<NpcChat.ChatReason, List<String>> getTranslatedDialogues(String language) {
         return getDialoguesForLanguage(language);

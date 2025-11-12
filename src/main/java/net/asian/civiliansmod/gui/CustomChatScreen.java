@@ -1,20 +1,16 @@
 package net.asian.civiliansmod.gui;
 
-import net.asian.civiliansmod.CiviliansMod;
+import java.util.ArrayList;
+import java.util.List;
+
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.gui.widgets.ChatReasonEntryScrollContainer;
 import net.asian.civiliansmod.gui.widgets.GlobalChatScrollWidget;
 import net.asian.civiliansmod.gui.widgets.TextButtonWidget;
-import net.asian.civiliansmod.util.DebugUtil;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class CustomChatScreen extends AbstractConfigScreen {
     GlobalChatScrollWidget chatScrollWidget;

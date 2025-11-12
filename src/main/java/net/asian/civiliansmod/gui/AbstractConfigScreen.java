@@ -23,13 +23,21 @@ public class AbstractConfigScreen extends Screen {
         int x = width / 2;
         int y = height / 2;
 
+        // FIX 1: Changed to check for AbstractNPCScreen subclasses specifically
+        // This checks if the current screen is any type of NPC skin screen
         int skinSelectionColor = this instanceof AbstractNPCScreen ? 0x00FF00 : 0xFFFFFFFF;
         TextButtonWidget skinSelection = new TextButtonWidget(x - 88, y - 78, 85, 13, Text.translatable("civilians.gui.skin"), (button) -> {
-            MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(npc));
+            // FIX 2: Added null check for npc
+            if (npc != null) {
+                npc.openCustomNPCScreen();
+            }
         }, 0xFFFFFFFF, skinSelectionColor);
 
         int chatSelectionColor = this instanceof CustomChatScreen ? 0x00FF00 : 0xFFFFFFFF;
         TextButtonWidget chatSelection = new TextButtonWidget(x + 3, y - 78, 85, 13, Text.translatable("civilians.gui.chat"), (button) -> {
+            // FIX 3: Added null check for npc
+            if (npc == null) return;
+            
             if (!npc.dialoguesReceived) {
                 CiviliansMod.LOGGER.info("[CiviliansMod] Requesting dialogues from server for NPC " + npc.getUuid());
                 ClientPlayNetworking.send(new ClientDialogueSyncPayload(npc.getUuid()));
@@ -38,7 +46,7 @@ public class AbstractConfigScreen extends Screen {
             client.execute(() -> {
                 client.setScreen(new CustomChatScreen(npc));
 
-                        // check again if customchat screen is not open
+                // check again if customchat screen is not open
                 if (npc.dialoguesReceived && client.currentScreen instanceof CustomChatScreen screen) {
                     CiviliansMod.LOGGER.info("[CiviliansMod] Initializing CustomChatScreen after dialogue sync for NPC " + npc.getId());
                     screen.fullInit();

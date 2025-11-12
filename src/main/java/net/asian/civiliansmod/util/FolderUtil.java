@@ -1,19 +1,19 @@
 package net.asian.civiliansmod.util;
 
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
-import net.asian.civiliansmod.CiviliansMod;
-import net.asian.civiliansmod.chat.DefaultChat;
-import net.asian.civiliansmod.chat.NpcChat;
-import net.fabricmc.loader.api.FabricLoader;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import net.asian.civiliansmod.CiviliansMod;
+import net.asian.civiliansmod.chat.DefaultChat;
+import net.asian.civiliansmod.chat.NpcChat;
+import net.fabricmc.loader.api.FabricLoader;
 
 public class FolderUtil {
     public static final Path CIVILIANS_PATH = FabricLoader.getInstance().getGameDir().resolve("civiliansmod");
