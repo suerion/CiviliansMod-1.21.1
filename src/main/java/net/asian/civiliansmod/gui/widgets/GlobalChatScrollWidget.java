@@ -10,6 +10,7 @@ import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.ArrayList;
+import java.util.List;
 
 public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScrollContainer> {
     NPCEntity npc;
@@ -31,6 +32,29 @@ public class GlobalChatScrollWidget extends ElementListWidget<ChatReasonEntryScr
 
     public boolean isCustomMode() {
         return customMode;
+    }
+
+    public List<String> getSelectedDialogues() {
+        List<String> selected = new ArrayList<>();
+        for (ChatReasonEntryScrollContainer container : this.children()) {
+            if (container.open) {
+                for (DialogueRowEntry row : container.entries) {
+                    for (AbstractDialogueEntry dialogueEntry : row.dialogueEntryList) {
+                        if (dialogueEntry instanceof DialogueEntry entry && entry.isSelected()) {
+                            selected.add(entry.dialogue);
+                        }
+                    }
+                }
+            }
+        }
+        return selected;
+    }
+
+    private boolean selectionMode = false;
+
+    public void setSelectionMode(boolean mode) {
+        this.selectionMode = mode;
+        this.children().forEach(c -> c.setSelectionMode(mode));
     }
 
     public void refreshChildren() {

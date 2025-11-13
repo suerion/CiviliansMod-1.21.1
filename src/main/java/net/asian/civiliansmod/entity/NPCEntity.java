@@ -14,9 +14,11 @@ import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
+
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
+
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -27,11 +29,13 @@ import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
+import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
@@ -48,8 +52,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
-import org.jetbrains.annotations.Nullable;
 
+import org.jetbrains.annotations.Nullable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,14 +67,14 @@ public class NPCEntity extends PathAwareEntity {
     private static final TrackedData<Boolean> IS_FOLLOWING = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> IS_BATTLE_BUDDY = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     // FIX 1: Changed OPTIONAL_UUID to OPTIONAL_UNIQUE_ID
-    private static final TrackedData<Optional<UUID>> OWNER_UUID = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.OPTIONAL_UUID);
-    private float originalMaxHealth = 20.0f;
+    private static final TrackedData<Optional<UUID>> OWNER_UUID = DataTracker.registerData(NPCEntity.class, CiviliansMod.OPTIONAL_UUID);
     private static final TrackedData<Float> WANDER_RADIUS = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.FLOAT);
     private static final TrackedData<BlockPos> WANDER_ANCHOR = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BLOCK_POS);
     private static final TrackedData<String> TRADE_PRESET = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.STRING);
     private static final TrackedData<Boolean> DIALOGUE_ORDERED = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Integer> DIALOGUE_INDEX = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
+    private float originalMaxHealth = 20.0f;
     int updateDialoguesTicks = 0;
     private Set<UUID> sent;
     @Environment(EnvType.CLIENT)
@@ -181,15 +185,20 @@ public class NPCEntity extends PathAwareEntity {
     public void setBattleBuddy(boolean battleBuddy) {
         this.dataTracker.set(IS_BATTLE_BUDDY, battleBuddy);
         if (!this.getWorld().isClient) {
-            if (battleBuddy) {
-                this.originalMaxHealth = this.getMaxHealth();
-                // FIX 4: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
-                Objects.requireNonNull(this.getAttributeInstance(EntityAttributes.MAX_HEALTH)).setBaseValue(40.0D);
-                this.heal(40.0f);
-            } else {
-                // FIX 5: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
-                Objects.requireNonNull(this.getAttributeInstance(EntityAttributes.MAX_HEALTH)).setBaseValue(this.originalMaxHealth);
-                if (this.getHealth() > this.originalMaxHealth) { this.setHealth(this.originalMaxHealth); }
+            var healthAttr = this.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+            if (healthAttr != null) {
+                if (battleBuddy) {
+                    // FIX 4: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
+                    this.originalMaxHealth = this.getMaxHealth();
+                    healthAttr.setBaseValue(40.0D);
+                    this.heal(40.0F);
+                } else {
+                    // FIX 5: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
+                    healthAttr.setBaseValue(this.originalMaxHealth);
+                    if (this.getHealth() > this.originalMaxHealth) {
+                        this.setHealth(this.originalMaxHealth);
+                    }
+                }
             }
         }
     }

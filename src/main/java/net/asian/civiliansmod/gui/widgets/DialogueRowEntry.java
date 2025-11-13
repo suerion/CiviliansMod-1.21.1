@@ -27,6 +27,13 @@ public class DialogueRowEntry extends ElementListWidget.Entry<DialogueRowEntry> 
             dialogueEntryList.add(new AddDialogueEntry(npc,0, 0, 112, 12, chatReason, screen, customMode));
         }
     }
+    public void setSelectionMode(boolean mode) {
+        for (AbstractDialogueEntry entry : dialogueEntryList) {
+            if (entry instanceof DialogueEntry dialogueEntry) {
+                dialogueEntry.setSelectionMode(mode);
+            }
+        }
+    }
 
     @Override
     public List<? extends Selectable> selectableChildren() {

@@ -24,7 +24,10 @@ public record MassRemoveDialoguePayload(
     public static final PacketCodec<RegistryByteBuf, MassRemoveDialoguePayload> CODEC = PacketCodec.tuple(
             PacketCodecs.VAR_INT, MassRemoveDialoguePayload::npcId,
             PacketCodecs.STRING, MassRemoveDialoguePayload::language,
-            PacketCodecs.forEnum(NpcChat.ChatReason.class), MassRemoveDialoguePayload::reason,
+            PacketCodecs.indexed(
+                    i -> NpcChat.ChatReason.values()[i],
+                    NpcChat.ChatReason::ordinal
+            ), MassRemoveDialoguePayload::reason,
             PacketCodecs.STRING.collect(PacketCodecs.toList()), MassRemoveDialoguePayload::dialoguesToRemove,
             MassRemoveDialoguePayload::new
     );
@@ -35,7 +38,7 @@ public record MassRemoveDialoguePayload(
     }
 
     public static void handlePacket(MassRemoveDialoguePayload payload, ServerPlayerEntity player) {
-        if (player.getServerWorld().getEntityById(payload.npcId()) instanceof NPCEntity npc) {
+        if (player.getWorld().getEntityById(payload.npcId()) instanceof NPCEntity npc) {
             npc.getChatManager().removeDialogues(
                     payload.language(),
                     payload.reason(),

@@ -25,7 +25,10 @@ public class AbstractConfigScreen extends Screen {
 
         // FIX 1: Changed to check for AbstractNPCScreen subclasses specifically
         // This checks if the current screen is any type of NPC skin screen
-        int skinSelectionColor = this instanceof AbstractNPCScreen ? 0x00FF00 : 0xFFFFFFFF;
+        // New Fix, because java thing, it cast "this" but we need to fix
+
+        boolean isAbstractNPCScreen = AbstractNPCScreen.class.isAssignableFrom(this.getClass());
+        int skinSelectionColor = isAbstractNPCScreen ? 0x00FF00 : 0xFFFFFFFF;
         TextButtonWidget skinSelection = new TextButtonWidget(x - 88, y - 78, 85, 13, Text.translatable("civilians.gui.skin"), (button) -> {
             // FIX 2: Added null check for npc
             if (npc != null) {

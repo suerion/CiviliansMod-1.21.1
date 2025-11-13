@@ -11,9 +11,14 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
+import net.asian.civiliansmod.networking.payload.npc.dialogue.MassRemoveDialoguePayload;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.asian.civiliansmod.chat.NpcChat;
+import java.util.Collections;
 
 public class CustomChatScreen extends AbstractConfigScreen {
     GlobalChatScrollWidget chatScrollWidget;
+    private boolean selectionMode = false;
     private boolean screenInitialized = false; // screen is initialized? true if yes
 
     public CustomChatScreen(NPCEntity npc) {
@@ -39,7 +44,7 @@ public class CustomChatScreen extends AbstractConfigScreen {
         int buttonHeight = 15;
         int buttonX = x - (buttonWidth / 2);
         int buttonY = y + 85;
-        TextButtonWidget toggleButton = new TextButtonWidget(buttonX, buttonY, buttonWidth, buttonHeight,  Text.literal(chatScrollWidget.isCustomMode() ? "Default" : "Custom"), button -> {
+        TextButtonWidget toggleButton = new TextButtonWidget(buttonX, buttonY, buttonWidth, buttonHeight, Text.literal(chatScrollWidget.isCustomMode() ? "Default" : "Custom"), button -> {
             boolean nextMode = !chatScrollWidget.isCustomMode();
             this.remove(chatScrollWidget);
 
@@ -58,24 +63,106 @@ public class CustomChatScreen extends AbstractConfigScreen {
             screenInitialized = true;
         });
         addDrawableChild(toggleButton);
+
+         TextButtonWidget selectModeButton = new TextButtonWidget(
+                x - 60, y + 85, 100, 15,
+                Text.literal("Select Mode"), button -> {
+            selectionMode = !selectionMode;
+            chatScrollWidget.setSelectionMode(selectionMode);
+            button.setMessage(Text.literal(selectionMode ? "Exit Select Mode" : "Select Mode"));
+        },
+                0xFFFFFF, 0xFFAAAAFF
+        );
+        addDrawableChild(selectModeButton);
+
+        //add remove
+        int deleteSelectedWidth = 100;
+        int deleteSelectedHeight = 15;
+        int deleteSelectedX = x - 180;
+        int deleteSelectedY = y + 85;
+
+        TextButtonWidget deleteSelectedButton = new TextButtonWidget(
+                deleteSelectedX, deleteSelectedY, deleteSelectedWidth, deleteSelectedHeight,
+                Text.literal("Delete Selected"), button -> {
+
+            String language = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+            boolean isCustom = chatScrollWidget.isCustomMode();
+
+            List<String> selectedDialogues = chatScrollWidget.getSelectedDialogues();
+            if (selectedDialogues.isEmpty()) return;
+
+            // für jede Reason (wenn du mehrere Bereiche hast)
+            for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+                MassRemoveDialoguePayload payload = new MassRemoveDialoguePayload(
+                        npc.getId(),
+                        language,
+                        reason,
+                        selectedDialogues
+                );
+                ClientPlayNetworking.send(payload);
+            }
+
+            // lokal entfernen und refresh
+            for (String d : selectedDialogues) {
+                if (isCustom)
+                    npc.getChatManager().getCustomDialogues().values().forEach(list -> list.remove(d));
+                else
+                    npc.getChatManager().getTranslatedDialogues(language).values().forEach(list -> list.remove(d));
+            }
+
+            this.fullInit();
+        }, 0xFFFFFF, 0xFF8888FF);
+
+        addDrawableChild(deleteSelectedButton);
+
+        //add removeallbutton
+        int removeButtonWidth = 80;
+        int removeButtonHeight = 15;
+        int removeButtonX = x + 90;
+        int removeButtonY = y + 85;
+
+        TextButtonWidget removeAllButton = new TextButtonWidget(
+                removeButtonX, removeButtonY, removeButtonWidth, removeButtonHeight,
+                Text.literal("Remove All"), button -> {
+
+            String language = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+            boolean isCustom = chatScrollWidget.isCustomMode();
+
+            // Hier iterieren wir über alle ChatReasons
+            for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+                List<String> dialoguesToRemove;
+
+                if (isCustom) {
+                    dialoguesToRemove = new ArrayList<>(npc.getChatManager()
+                            .getCustomDialogues()
+                            .getOrDefault(reason, Collections.emptyList()));
+                    npc.getChatManager().getCustomDialogues().remove(reason);
+                } else {
+                    dialoguesToRemove = new ArrayList<>(npc.getChatManager()
+                            .getTranslatedDialogues(language)
+                            .getOrDefault(reason, Collections.emptyList()));
+                    npc.getChatManager().getTranslatedDialogues(language).remove(reason);
+                }
+
+                // Sende MassRemovePayload, wenn es tatsächlich Einträge gibt
+                if (!dialoguesToRemove.isEmpty()) {
+                    MassRemoveDialoguePayload payload = new MassRemoveDialoguePayload(
+                            npc.getId(),
+                            language,
+                            reason,
+                            dialoguesToRemove
+                    );
+                    ClientPlayNetworking.send(payload);
+                }
+            }
+
+            // Refresh GUI
+            this.fullInit();
+        }, 0xFFFFFF, 0xFFFF4444);
+
+        addDrawableChild(removeAllButton);
     }
 
-    public void fullInit() {
-        List<Boolean> openList = new ArrayList<>();
-        double offsetY = chatScrollWidget.getScrollY();
-        chatScrollWidget.children().forEach(chatReasonEntryScrollContainer -> {
-            openList.add(chatReasonEntryScrollContainer.getOpen());
-        });
-
-        chatScrollWidget.children().forEach(container -> openList.add(container.getOpen()));
-        chatScrollWidget.refreshChildren();
-        chatScrollWidget.setScrollY(Math.min(offsetY, chatScrollWidget.getMaxScrollY()));
-        chatScrollWidget.refreshScroll();
-
-        for (int i = 0; i < chatScrollWidget.children().size() && i < openList.size(); i++) {
-            chatScrollWidget.children().get(i).setOpen(openList.get(i));
-        }
-    }
 
     @Override
     public boolean mouseScrolled(double d, double e, double f, double g) {
@@ -85,9 +172,14 @@ public class CustomChatScreen extends AbstractConfigScreen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        super.render(context, mouseX, mouseY, delta);
         if (chatScrollWidget != null && screenInitialized) {
             chatScrollWidget.renderWidget(context, mouseX, mouseY, delta);
+            // Aktiviert/deaktiviert den Button dynamisch
+            for (var child : this.children()) {
+                if (child instanceof TextButtonWidget btn && btn.getMessage().getString().contains("Delete Selected")) {
+                    btn.active = !chatScrollWidget.getSelectedDialogues().isEmpty();
+                }
+            }
         }
     }
 
@@ -113,5 +205,25 @@ public class CustomChatScreen extends AbstractConfigScreen {
     public void close() {
         screenInitialized = false;
         super.close();
+    }
+
+    public void fullInit() {
+        if (chatScrollWidget == null) return;
+
+        // Speichere, welche Sektionen geöffnet waren
+        List<Boolean> openList = new ArrayList<>();
+        double offsetY = chatScrollWidget.getScrollY();
+
+        chatScrollWidget.children().forEach(container -> openList.add(container.getOpen()));
+
+        // Neu aufbauen
+        chatScrollWidget.refreshChildren();
+        chatScrollWidget.setScrollY(Math.min(offsetY, chatScrollWidget.getMaxScrollY()));
+        chatScrollWidget.refreshScroll();
+
+        // Setze vorherigen Open-Status wieder
+        for (int i = 0; i < chatScrollWidget.children().size() && i < openList.size(); i++) {
+            chatScrollWidget.children().get(i).setOpen(openList.get(i));
+        }
     }
 }

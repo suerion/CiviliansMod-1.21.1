@@ -24,6 +24,8 @@ public class DialogueEntry extends AbstractDialogueEntry {
     String dialogue;
     int index;
     boolean customMode;
+    CheckboxWidget checkbox;
+    boolean selectionMode = false;
 
     protected DialogueEntry(NPCEntity npc, int x, int y, int width, int height, NpcChat.ChatReason chatReason, CustomChatScreen screen, String dialogue, int index, boolean customMode) {
         super(x, y, width, height, chatReason, button -> {
@@ -46,6 +48,9 @@ public class DialogueEntry extends AbstractDialogueEntry {
 
             MinecraftClient.getInstance().setScreen(confirmScreen);
         });
+        checkbox = new CheckboxWidget(x - 12, y + 1, 10, 10, Text.empty(), false, checked -> {
+            // Checkbox-Klickaktion – hier musst du nichts tun, der Zustand bleibt lokal gespeichert
+        });
         this.dialogue = dialogue;
         this.index = index;
     }
@@ -53,6 +58,14 @@ public class DialogueEntry extends AbstractDialogueEntry {
     @Override
     protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
         super.renderWidget(context, mouseX, mouseY, delta);
+    }
+
+    public void setSelectionMode(boolean mode) {
+        this.selectionMode = mode;
+    }
+
+    public boolean isSelected() {
+        return checkbox.isChecked();
     }
 
     @Override
@@ -74,11 +87,21 @@ public class DialogueEntry extends AbstractDialogueEntry {
         //draw dialouge
         context.drawTextWithShadow(client.textRenderer, textToDraw, x + 4, y + 3, 0xFFFFFFFF);
 
-        deleteWidget.render(context, mouseX, mouseY, delta);
+        if (selectionMode) {
+            checkbox.setX(x - 12);
+            checkbox.setY(y + 1);
+            checkbox.render(context, mouseX, mouseY, delta);
+        } else {
+            deleteWidget.render(context, mouseX, mouseY, delta);
+        }
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (selectionMode && checkbox.isMouseOver(mouseX, mouseY)) {
+            checkbox.mouseClicked(mouseX, mouseY, button);
+            return true;
+        }
         if (deleteWidget.isMouseOver(mouseX, mouseY)) {
             deleteWidget.mouseClicked(mouseX, mouseY, button);
             return true;

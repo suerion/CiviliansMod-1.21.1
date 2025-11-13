@@ -43,6 +43,12 @@ public class ChatReasonEntryScrollContainer extends ElementListWidget.Entry<Chat
         openWidget = new OpenWidget(0, 0, 10, 10, this, button -> open = !open);
     }
 
+    public void setSelectionMode(boolean mode) {
+        for (DialogueRowEntry row : entries) {
+            row.setSelectionMode(mode);
+        }
+    }
+
     @Override
     public List<? extends Selectable> selectableChildren() {
         return List.of();
