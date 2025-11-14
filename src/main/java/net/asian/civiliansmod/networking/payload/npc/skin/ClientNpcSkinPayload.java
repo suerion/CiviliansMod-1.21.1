@@ -18,11 +18,17 @@ import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) implements CustomPayload {
+
     public static final CustomPayload.Id<ClientNpcSkinPayload> ID =
             new CustomPayload.Id<>(Identifier.of(CiviliansMod.MOD_ID, "client_npc_skin_update"));
+
+    // add texture caching
+    private static final Map<Integer, SkinIdentifier> NPC_TEXTURE_CACHE = new HashMap<>();
 
     public static final PacketCodec<RegistryByteBuf, ClientNpcSkinPayload> CODEC = PacketCodec.tuple(
             PacketCodecs.INTEGER, ClientNpcSkinPayload::npcId,
@@ -32,50 +38,66 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
     );
 
     @Override
-    public CustomPayload.Id<? extends CustomPayload> getId() { return ID; }
+    public Id<? extends CustomPayload> getId() { return ID; }
 
     @Environment(EnvType.CLIENT)
     public void handlePacket(ClientPlayNetworking.Context context) {
         context.client().execute(() -> {
 
-            CiviliansMod.LOGGER.info("[Client] ClientNpcSkinPayload received for NPC {}", npcId);
             ClientWorld clientWorld = context.player().clientWorld;
-            Entity entityById = clientWorld.getEntityById(this.npcId);
+            Entity entity = clientWorld.getEntityById(this.npcId);
 
             try {
-                NativeImage image = NativeImage.read(skin);
-                if (image.getHeight() != 64 || image.getWidth() != 64) return;
 
-                String texName = "npcskin_" + npcId + "_" + UUID.randomUUID();
-                Identifier skinIdentifier = Identifier.of(CiviliansMod.MOD_ID, texName);
+                // check if cached
+                SkinIdentifier cached = NPC_TEXTURE_CACHE.get(npcId);
 
-                NativeImageBackedTexture dynamicTexture =
-                        new NativeImageBackedTexture(() -> texName, image);
+                if (cached != null) {
+                    CiviliansMod.LOGGER.info("[Client] Using cached texture for NPC {}", npcId);
 
-                MinecraftClient.getInstance().getTextureManager().registerTexture(skinIdentifier, dynamicTexture);
-
-                SkinIdentifier skin1 = new SkinIdentifier(skinIdentifier, slim, true);
-                image.close();
-
-                if (entityById == null) {
-                    NPCUtil.waitingSync.put(npcId, skin1);
+                    if (entity instanceof NPCEntity npc) {
+                        npc.getSkinManager().setSkinByteArray(skin());
+                        npc.getSkinManager().setSlim(slim());
+                        npc.getSkinManager().setIdSkin(cached);
+                        npc.getSkinManager().setDefaultSkin(false);
+                        npc.refreshSkinModel();
+                    }
                     return;
                 }
 
-                if (entityById instanceof NPCEntity npcEntity) {
-                    npcEntity.getSkinManager().setSkinByteArray(this.skin());
-                    npcEntity.getSkinManager().setSlim(this.slim());
-                    npcEntity.getSkinManager().setIdSkin(skin1);
-                    npcEntity.getSkinManager().setDefaultSkin(false);
+                // only on first time chang
+                NativeImage image = NativeImage.read(skin);
+                if (image.getWidth() != 64 || image.getHeight() != 64) {
+                    CiviliansMod.LOGGER.error("[Client] Invalid skin size for NPC {}", npcId);
+                    return;
+                }
 
-                    npcEntity.refreshSkinModel();
+                String texName = "npcskin_cache_" + npcId;
+                Identifier texId = Identifier.of(CiviliansMod.MOD_ID, texName);
+
+                NativeImageBackedTexture texture =
+                        new NativeImageBackedTexture(() -> texName, image);
+
+                MinecraftClient.getInstance().getTextureManager().registerTexture(texId, texture);
+
+                SkinIdentifier skinId = new SkinIdentifier(texId, slim, true);
+
+                image.close();
+
+                // save to cache
+                NPC_TEXTURE_CACHE.put(npcId, skinId);
+
+                if (entity instanceof NPCEntity npc) {
+                    npc.getSkinManager().setSkinByteArray(skin());
+                    npc.getSkinManager().setSlim(slim());
+                    npc.getSkinManager().setIdSkin(skinId);
+                    npc.getSkinManager().setDefaultSkin(false);
+                    npc.refreshSkinModel();
                 }
 
             } catch (Exception e) {
-                CiviliansMod.LOGGER.error("error while converting skin files");
-                e.printStackTrace();
+                CiviliansMod.LOGGER.error("[Client] Error decoding NPC skin", e);
             }
         });
     }
-
 }
