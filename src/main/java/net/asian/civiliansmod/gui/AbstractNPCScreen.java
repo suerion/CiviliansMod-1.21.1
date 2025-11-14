@@ -506,18 +506,32 @@ public abstract class AbstractNPCScreen extends Screen {
         return preview;
     }
 
-    // save and close
+    private SkinIdentifier getSelectedSkin() {
+        if (selectedSkinIndex < 0) {
+            return npc.getSkinManager().getIdSkin();
+        }
+        return NPCUtil.getSkins().get(selectedSkinIndex);
+    }
 
+    // save and close
     private void saveAndClose() {
         ClientPlayNetworking.send(new NPCDataPayload(npc.getUuid(), nameInputField.getText(), stayState, followState, battleBuddyState, wanderRadiusState, dialogueOrderedState, tradePresetState));
-        if (selectedSkinIndex != -1 && selectedSkinIndex != npc.getSkinManager().getBaseVariant()) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(selectedSkinIndex);
-            if (skin.custom()) {
-                ClientPlayNetworking.send(new ChangeSkinPayload(npc.getUuid(), skin.slim(), skin));
-            } else {
-                ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), selectedSkinIndex));
-            }
+        SkinIdentifier selected = getSelectedSkin();
+        byte[] data = NPCUtil.images.getOrDefault(selected, null);
+        if (selected.custom()) {
+            npc.getSkinManager().setSkinByteArray(data);
+            npc.getSkinManager().setIdSkin(selected);
+            npc.getSkinManager().setSlim(selected.slim());
+            npc.getSkinManager().setDefaultSkin(false);
+            ClientPlayNetworking.send(new ChangeSkinPayload( npc.getUuid(), selected.slim(), selected));
+        } else {
+            npc.getSkinManager().setBaseVariant(selectedSkinIndex);
+            npc.getSkinManager().setSlim(selectedSkinIndex > 43);
+            npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex));
+            npc.getSkinManager().setDefaultSkin(true);
+            ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), selectedSkinIndex));
         }
+        npc.refreshSkinModel();
         this.close();
     }
 }

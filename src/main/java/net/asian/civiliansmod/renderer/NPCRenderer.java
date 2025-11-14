@@ -1,5 +1,6 @@
 package net.asian.civiliansmod.renderer;
 
+import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
 import net.minecraft.client.render.VertexConsumerProvider;
@@ -65,7 +66,11 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     @Override
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
-        livingEntityRenderState.texture = livingEntity.getSkinManager().getIdSkin().id();
-        livingEntityRenderState.slim = livingEntity.getSkinManager().getIdSkin().slim();
+        livingEntityRenderState.slim = livingEntity.getSkinManager().isSlimModel();
+        Identifier newSkin = livingEntity.getSkinManager().getIdSkin().id();
+        if (livingEntityRenderState.texture == null || !livingEntityRenderState.texture.equals(newSkin)) {
+            CiviliansMod.LOGGER.info("[Renderer] Texture changed -> updating state for NPC {}", livingEntity.getId());
+            livingEntityRenderState.texture = newSkin;
+        }
     }
 }

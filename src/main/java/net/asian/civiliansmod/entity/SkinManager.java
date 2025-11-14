@@ -70,6 +70,9 @@ public class SkinManager {
 
     void writeView(WriteView writeView) {
         writeView.putInt("basevariant", baseVariant);
+        writeView.putBoolean("slim", slim);
+        writeView.putBoolean("defaultSkin", defaultSkin);
+
         if (skinByteArray != null) {
             writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
         }
@@ -77,10 +80,12 @@ public class SkinManager {
 
     void readNbt(ReadView readView) {
         this.baseVariant = readView.getInt("basevariant", 0);
+        this.slim = readView.getBoolean("slim", this.baseVariant > 43);
+        this.defaultSkin = readView.getBoolean("defaultSkin", true);
+
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
         if (skin.isPresent()) {
-            Skin s = skin.get();
-            this.skinByteArray = s.skin;
+            this.skinByteArray = skin.get().skin;
             this.defaultSkin = false;
         }
     }

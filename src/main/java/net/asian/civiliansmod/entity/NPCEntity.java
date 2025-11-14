@@ -320,6 +320,14 @@ public class NPCEntity extends PathAwareEntity {
     public boolean hasSentTo(UUID playerId) { return sent != null && sent.contains(playerId); }
     public void markSentTo(UUID playerId) { if (sent != null) { sent.add(playerId); } }
 
+    @Environment(EnvType.CLIENT)
+    public void refreshSkinModel() {
+        this.calculateDimensions();
+        this.setPosition(this.getX(), this.getY(), this.getZ());
+        MinecraftClient.getInstance().worldRenderer.reload();
+        CiviliansMod.LOGGER.info("[Client] RefreshSkinModel() executed for NPC {}", this.getId());
+    }
+
     @Override
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
