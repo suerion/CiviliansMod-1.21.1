@@ -58,14 +58,6 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogues) implements
             npc.dialoguesReceived = true;
 
             CiviliansMod.LOGGER.info("[CiviliansMod] Dialogues received for NPC {}", npcId);
-
-            if (client.currentScreen instanceof CustomChatScreen screen) {
-                screen.fullInit();
-                return;
-            }
-            CiviliansMod.LOGGER.info("[CiviliansMod] Opening NPC GUI for {}", npcId);
-            npc.openCustomNPCScreen();
-
         });
     }
 }

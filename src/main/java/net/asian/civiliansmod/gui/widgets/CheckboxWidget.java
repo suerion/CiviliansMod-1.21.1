@@ -2,17 +2,25 @@ package net.asian.civiliansmod.gui.widgets;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
+import net.minecraft.client.gui.screen.narration.NarrationPart;
 import net.minecraft.client.gui.widget.PressableWidget;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 import java.util.function.Consumer;
 
+import static net.minecraft.client.render.entity.ArrowEntityRenderer.TEXTURE;
+
 public class CheckboxWidget extends PressableWidget {
 
-    private static final Identifier TEXTURE = Identifier.of("minecraft", "widget/checkbox");
+    private static final Identifier UNCHECKED = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox.png");
+    private static final Identifier UNCHECKED_HL = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_highlighted.png");
+    private static final Identifier CHECKED = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_selected.png");
+    private static final Identifier CHECKED_HL = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_selected_highlighted.png");
+
     private boolean checked;
     private final Consumer<Boolean> action;
 
@@ -33,28 +41,32 @@ public class CheckboxWidget extends PressableWidget {
     public boolean isChecked() {
         return this.checked;
     }
-    
+
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+        super.renderWidget(context, mouseX, mouseY, delta);
+
         MinecraftClient client = MinecraftClient.getInstance();
         TextRenderer textRenderer = client.textRenderer;
 
-        // The new identifier points to a texture with different states (e.g., hovered, selected)
-        Identifier texture = TEXTURE.withSuffixedPath(this.isChecked() ? "_selected" : "");
-        if (this.isHovered()) {
-            texture = texture.withSuffixedPath("_highlighted");
+        Identifier texture;
+
+        if (checked) {
+            texture = this.isHovered() ? CHECKED_HL : CHECKED;
+        } else {
+            texture = this.isHovered() ? UNCHECKED_HL : UNCHECKED;
         }
-        
-        // Draw the checkbox texture
-        context.drawGuiTexture(null, texture, this.getX(), this.getY(), 20, 20);
+
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, getX(), getY(), 20, 20);
 
         // Draw the label text
-        context.drawTextWithShadow(textRenderer, this.getMessage(), this.getX() + 24, this.getY() + (this.height - 8) / 2, 0xFFFFFF);
+        TextRenderer renderer = MinecraftClient.getInstance().textRenderer;
+        context.drawTextWithShadow(renderer, this.getMessage(), this.getX() + 26, this.getY() + (this.height - 8) / 2, 0xFFFFFF
+        );
     }
 
     @Override
     protected void appendClickableNarrations(NarrationMessageBuilder builder) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'appendClickableNarrations'");
+        builder.put(NarrationPart.TITLE, this.getMessage());
     }
 }

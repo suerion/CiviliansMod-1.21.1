@@ -204,6 +204,7 @@ public class NPCEntity extends PathAwareEntity {
     }
     public Optional<UUID> getOwnerUuid() { return this.dataTracker.get(OWNER_UUID); }
     public void setOwnerUuid(@Nullable UUID uuid) { this.dataTracker.set(OWNER_UUID, Optional.ofNullable(uuid)); }
+
     @Nullable
     public LivingEntity getOwner() {
         try {
@@ -222,9 +223,21 @@ public class NPCEntity extends PathAwareEntity {
     public void setDialogueOrdered(boolean ordered) { this.dataTracker.set(DIALOGUE_ORDERED, ordered); }
     public int getDialogueIndex() { return this.dataTracker.get(DIALOGUE_INDEX); }
     public void setDialogueIndex(int index) { this.dataTracker.set(DIALOGUE_INDEX, index); }
+
     @Override
     protected ActionResult interactMob(PlayerEntity player, Hand hand) {
-        if (this.getWorld().isClient || hand != Hand.MAIN_HAND) { return ActionResult.PASS; }
+        if (this.getWorld().isClient) {
+            if (hand == Hand.MAIN_HAND && player.isSneaking()) {
+                if (this.dialoguesReceived) {
+                    this.openCustomNPCScreen();
+                }
+                return ActionResult.SUCCESS;
+            }
+            return ActionResult.PASS;
+        }
+        if (hand != Hand.MAIN_HAND) {
+            return ActionResult.PASS;
+        }
         ItemStack heldItem = player.getStackInHand(hand);
         if (heldItem.isOf(Items.LEAD) && this.canBeLeashedBy(player)) {
             this.attachLeash(player, true);
@@ -256,18 +269,24 @@ public class NPCEntity extends PathAwareEntity {
     }
     @Override
     public boolean cannotDespawn() { return true; }
+
     @Environment(EnvType.CLIENT)
     public void openCustomNPCScreen() {
-        SkinManager sm = getSkinManager();
-        if (sm == null) return;
-        if (sm.isSlimModel() && sm.isDefaultSkin()) {
-            MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this));
-        } else if (sm.isDefaultSkin()) {
-            MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this));
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null) return;
+
+        int baseVariant = this.getSkinManager().getBaseVariant();
+        SkinIdentifier skinId = NPCUtil.getNPCTexture(baseVariant);
+
+        if (skinId.custom()) {
+              client.setScreen(new CustomNPCScreen(this));
+        } else if (skinId.slim()) {
+            client.setScreen(new SlimNPCScreen(this));
         } else {
-            MinecraftClient.getInstance().setScreen(new CustomNPCScreen(this));
+            client.setScreen(new DefaultNPCScreen(this));
         }
     }
+
     @Override
     public Vec3d getLeashOffset() { return new Vec3d(0.0, 0.9, 0.0); }
     public boolean canBeLeashedBy(PlayerEntity player) { return !this.isLeashed() && !this.isBattleBuddy(); }

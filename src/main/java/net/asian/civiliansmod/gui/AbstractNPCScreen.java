@@ -30,10 +30,7 @@ import net.minecraft.world.World;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public abstract class AbstractNPCScreen extends Screen {
 
@@ -43,25 +40,57 @@ public abstract class AbstractNPCScreen extends Screen {
         Tab(String title) { this.title = Text.literal(title); }
     }
 
+    //Core NPC DATA
     protected final NPCEntity npc;
-    private NPCEntity previewNpc;
     protected Tab currentTab;
-    private TextFieldWidget nameInputField;
-    private float entityRotation = 150.0f;
+
+    //NPC cache
+    private final Map<Integer, NPCEntity> previewNpcCache = new HashMap<>();
+
+    //GUI Layout
     protected int containerX, containerY, containerWidth, containerHeight;
-    private List<Integer> skinsToRender;
+    private TextFieldWidget nameInputField;
+
+    //Skin handling
+    private List<Integer> skinsToRender = Collections.emptyList();
     private int selectedSkinIndex = -1;
+    private int originalVariantIndex = 0;
+
+    //AI state
     private boolean battleBuddyState, stayState, followState, dialogueOrderedState;
     private float wanderRadiusState;
-    private final Map<String, CheckboxWidget> dialogueCheckboxes = new HashMap<>();
+
+    //Dialogues state
+    private final Map<String, CheckboxWidget> dialogueCheckboxes = new LinkedHashMap<>();
     private ButtonWidget deleteDialogueButton;
     private int dialogueScrollOffset = 0;
+
+    //Trade State
     private String tradePresetState;
+
+    //Render Core
+    private NPCEntity previewNpc;
+
+    //smooth head rotation
+    private float smoothHeadYaw = 0.0F;
+    private float smoothPitch = 0.0F;
+
+    // constants for small preview layout
+    private static final int SKIN_CELL_SIZE = 40;
+    private static final int SKIN_CELL_SPACING = 5;
+    private static final int SKIN_COLUMNS = 3;
+
+    private static final int ENTITY_PREVIEW_SIZE = 25; // small NPCs
+    private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
+
+    private boolean pendingTabSwitch = false;
+    private Tab tabToSwitchTo = null;
 
     public AbstractNPCScreen(NPCEntity npc, Tab startingTab) {
         super(Text.literal("Civilian Customizer"));
         this.npc = npc;
         this.currentTab = startingTab;
+
         this.battleBuddyState = npc.isBattleBuddy();
         this.stayState = npc.isPaused();
         this.followState = npc.isFollowing();
@@ -74,45 +103,69 @@ public abstract class AbstractNPCScreen extends Screen {
     public AbstractNPCScreen(NPCEntity npc) {
         this(npc, Tab.SKINS);
     }
-    
+
     // Override method for AbstractConfigScreen to identify this as a skin screen
     protected boolean isSkinScreen() {
         return true;
     }
-    
+
     @Override
-    public boolean shouldPause() { return false; }
+    public boolean shouldPause() {
+        return false;
+    }
 
     @Override
     protected void init() {
         super.init();
-        if (this.client != null && this.client.world != null && this.previewNpc == null) {
-            this.previewNpc = this.createPreviewNpc(npc.getSkinManager().getBaseVariant());
-        }
+
+        //background box
         this.containerWidth = 256;
         this.containerHeight = 200;
         this.containerX = (this.width - this.containerWidth) / 2;
         this.containerY = (this.height - this.containerHeight) / 2;
+
+        // center preview NPC
+        if (this.client != null && this.client.world != null && this.previewNpc == null) {
+            this.previewNpc = this.createPreviewNPC(npc.getSkinManager().getBaseVariant());
+        }
+
+        // name field
         String currentName = npc.getCustomName() != null ? npc.getCustomName().getString() : "";
         this.nameInputField = new TextFieldWidget(this.textRenderer, containerX + 8, containerY + 28, 100, 18, Text.empty());
         this.nameInputField.setText(currentName);
         this.nameInputField.setMaxLength(32);
         this.addSelectableChild(this.nameInputField);
+
+        //buttons bottom
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Save & Close"), b -> this.saveAndClose()).dimensions(containerX + containerWidth - 88, containerY + containerHeight - 28, 80, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), b -> this.close()).dimensions(containerX + 8, containerY + containerHeight - 28, 80, 20).build());
+
+        //tab buttons
         int tabY = containerY + 5;
         this.addDrawableChild(ButtonWidget.builder(Tab.SKINS.title, b -> this.switchTab(Tab.SKINS)).dimensions(containerX + 115, tabY, 65, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.AI.title, b -> this.switchTab(Tab.AI)).dimensions(containerX + 185, tabY, 65, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.DIALOGUES.title, b -> this.switchTab(Tab.DIALOGUES)).dimensions(containerX + 115, tabY + 22, 65, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.TRADES.title, b -> this.switchTab(Tab.TRADES)).dimensions(containerX + 185, tabY + 22, 65, 20).build());
+
+        //tab widgets
         this.initTabWidgets();
     }
 
     private void switchTab(Tab newTab) {
         if (this.currentTab != newTab) {
-            this.currentTab = newTab;
-            this.clearChildren();
-            this.init();
+            this.tabToSwitchTo = newTab;
+            this.pendingTabSwitch = true;
+        }
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (pendingTabSwitch) {
+            this.currentTab = tabToSwitchTo;
+            this.clearAndInit();
+            pendingTabSwitch = false;
+            tabToSwitchTo = null;
         }
     }
 
@@ -122,37 +175,53 @@ public abstract class AbstractNPCScreen extends Screen {
         int contentWidth = 128;
         switch (this.currentTab) {
             case SKINS -> {
-                this.skinsToRender = this.getSkinsToRender();
+                //skins from cubclass
+                List<Integer> list = this.getSkinsToRender();
+                this.skinsToRender = (list != null) ? list : Collections.emptyList();
 
-                this.toRender = new ArrayList<>(this.skinsToRender);
-                if (this.selectedVariantIndex >= toRender.size()) {
-                    this.selectedVariantIndex = 0;
-                }
-
+                //skin type switch buttons
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"), (btn) -> this.client.setScreen(new DefaultNPCScreen(this.npc))).dimensions(containerX + 8, containerY + 50, 49, 20).build());
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"), (btn) -> this.client.setScreen(new SlimNPCScreen(this.npc))).dimensions(containerX + 59, containerY + 50, 49, 20).build());
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"), (btn) -> this.client.setScreen(new CustomNPCScreen(this.npc))).dimensions(containerX + 8, containerY + 72, 100, 20).build());
             }
             case AI -> {
+                // stay checkbox
                 this.addDrawableChild(new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> { this.stayState = checked; if (checked) this.followState = false; this.switchTab(Tab.AI); }));
+
+                //follow checkbox
                 CheckboxWidget followCheckbox = new CheckboxWidget(contentX, contentY + 25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> { this.followState = checked; if (checked) this.stayState = false; this.switchTab(Tab.AI); });
                 followCheckbox.active = !this.stayState;
                 this.addDrawableChild(followCheckbox);
+
+                //battle buddy checkbox
                 this.addDrawableChild(new CheckboxWidget(contentX, contentY + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> { this.battleBuddyState = checked; this.switchTab(Tab.AI); }));
+
+                //wanderslider radius
                 SliderWidget wanderSlider = new SliderWidget(contentX - 5, contentY + 80, contentWidth, 20, Text.literal("Wander: " + (int)this.wanderRadiusState), (this.wanderRadiusState - 4.0) / 60.0) {
-                    @Override protected void updateMessage() { setMessage(Text.literal("Wander: " + (int)getValue())); }
-                    @Override protected void applyValue() { wanderRadiusState = (float)getValue(); }
+
+                    @Override
+                    protected void updateMessage() { setMessage(Text.literal("Wander: " + (int)getValue())); }
+
+                    @Override
+                    protected void applyValue() { wanderRadiusState = (float)getValue(); }
+
                     private double getValue() { return 4.0 + this.value * 60.0; }
                 };
                 wanderSlider.active = !this.stayState && !this.followState;
                 this.addDrawableChild(wanderSlider);
             }
             case DIALOGUES -> {
+                // set order of dialouges
                 this.addDrawableChild(new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Ordered"), this.dialogueOrderedState, (checked) -> this.dialogueOrderedState = checked));
+
+                //delete selected button
                 this.deleteDialogueButton = ButtonWidget.builder(Text.literal("Delete Selected"), (b) -> this.deleteSelectedDialogues()).dimensions(contentX, containerY + containerHeight - 52, 128, 20).build();
                 this.addDrawableChild(this.deleteDialogueButton);
+
+                //fill dialogue list with checkboxes
                 this.dialogueCheckboxes.clear();
-                List<String> dialogues = npc.getChatManager().getDialoguesForLanguage("en_us").get(NpcChat.ChatReason.INTERACT);
+                Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getDialoguesForLanguage("en_us");
+                List<String> dialogues = (langMap != null) ? langMap.get(NpcChat.ChatReason.INTERACT) : null;
                 if (dialogues != null) {
                     for (String dialogue : dialogues) {
                         String truncated = dialogue.length() > 15 ? dialogue.substring(0, 14) + "..." : dialogue;
@@ -168,12 +237,22 @@ public abstract class AbstractNPCScreen extends Screen {
         }
     }
 
+    //abstract method for subclasses to define which skin indices they want to render
+    protected abstract List<Integer> getSkinsToRender();
+
+    //dialogues logic
     private void deleteSelectedDialogues() {
         List<String> toRemove = new ArrayList<>();
         this.dialogueCheckboxes.forEach((dialogue, checkbox) -> { if (checkbox.isChecked()) { toRemove.add(dialogue); } });
         if (!toRemove.isEmpty()) {
             ClientPlayNetworking.send(new MassRemoveDialoguePayload(npc.getId(), "en_us", NpcChat.ChatReason.INTERACT, toRemove));
-            npc.getChatManager().getDialoguesForLanguage("en_us").get(NpcChat.ChatReason.INTERACT).removeAll(toRemove);
+            Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getDialoguesForLanguage("en_us");
+            if (langMap != null) {
+                List<String> list = langMap.get(NpcChat.ChatReason.INTERACT);
+                if (list != null) {
+                    list.removeAll(toRemove);
+                }
+            }
             this.switchTab(Tab.DIALOGUES);
         }
     }
@@ -182,39 +261,85 @@ public abstract class AbstractNPCScreen extends Screen {
         if (this.deleteDialogueButton != null) { this.deleteDialogueButton.active = this.dialogueCheckboxes.values().stream().anyMatch(CheckboxWidget::isChecked); }
     }
 
+    //render
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        //background texture
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.of("civiliansmod", "gui/gui"), containerX, containerY, containerWidth, containerHeight);
+
+        //vanilla render
         super.render(context, mouseX, mouseY, delta);
-        // FIX: drawGuiTexture now requires RenderPipeline as first parameter
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.of("minecraft", "recipe_book/recipe_book"), containerX, containerY, containerWidth, containerHeight);
+
+        //title and tab title
         context.drawText(this.textRenderer, this.title, this.containerX + 8, this.containerY + 8, 0x404040, false);
         context.drawText(this.textRenderer, this.currentTab.title, this.containerX + 120, this.containerY + 8, 0x404040, false);
-        this.nameInputField.render(context, mouseX, mouseY, delta);
+
+        //big center NPC
         this.renderEntityPreview(context, mouseX, mouseY);
+
+        //tab overlay
         switch (this.currentTab) {
             case SKINS -> this.renderSkinsTab(context, mouseX, mouseY);
             case DIALOGUES -> this.renderDialoguesTab(context, mouseX, mouseY);
             default -> {} // Other tabs do not need special rendering
         }
-        // FIX: Changed Widget to Drawable to access render method
-        for (var element : children()) {
-            if (element instanceof Drawable drawable) { 
-                drawable.render(context, mouseX, mouseY, delta); 
-            }
-        }
     }
 
+    //skins tab
     private void renderSkinsTab(DrawContext context, int mouseX, int mouseY) {
-        int contentX = containerX + 120, contentY = containerY + 50, skinX = contentX, skinY = contentY, skinsPerRow = 3, skinSize = 40;
+        if (skinsToRender == null || skinsToRender.isEmpty()) {
+            context.drawText(this.textRenderer, Text.literal("No skins found"),
+                    containerX + 120, containerY + 50, 0xAAAAAA, false);
+            return;
+        }
+
+        int contentX = containerX + 120, contentY = containerY + 50;
+
         for (int i = 0; i < skinsToRender.size(); i++) {
-            renderVariantPreview(context, skinX, skinY, skinsToRender.get(i), mouseX, mouseY);
-            skinX += skinSize;
-            if ((i + 1) % skinsPerRow == 0) { skinX = contentX; skinY += skinSize + 5; }
+            int col = i % SKIN_COLUMNS;
+            int row = i / SKIN_COLUMNS;
+
+            int skinX = contentX + col * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+            int skinY = contentY + row * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+
+            int skinIndex = skinsToRender.get(i);
+            renderVariantPreview(context, skinX, skinY, skinIndex, mouseX, mouseY);
         }
     }
 
+    private void renderVariantPreview(DrawContext context, int x, int y, int skinIndex, int mouseX, int mouseY) {
+        int width = SKIN_CELL_SIZE;
+        int height = SKIN_CELL_SIZE;
+
+        boolean selected = (skinIndex == this.selectedSkinIndex);
+        boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+
+        int backgroundColor = hovered ? 0x55FFFFFF : 0x33000000;
+        int borderColor = selected ? 0xFFFFFFFF : 0xFFAAAAAA;
+
+        // draw background
+        context.fill(x, y, x + width, y + height, backgroundColor);
+
+        // draw border
+        int b = 1;
+        context.fill(x, y, x + width, y + b, borderColor);
+        context.fill(x, y + height - b, x + width, y + height, borderColor);
+        context.fill(x, y, x + b, y + height, borderColor);
+        context.fill(x + width - b, y, x + width, y + height, borderColor);
+
+        // small NPC preview inside cell
+        NPCEntity preview = getPreviewNPC(skinIndex);
+        int centerX = x + width / 2;
+        int centerY = y + height - 4;
+        renderEntity(context, centerX, centerY, ENTITY_PREVIEW_SIZE, preview, false);
+    }
+
+    //dialogue tab render
     private void renderDialoguesTab(DrawContext context, int mouseX, int mouseY) {
-        int contentX = containerX + 120, contentY = containerY + 75, yPos = contentY - dialogueScrollOffset;
+        int contentX = containerX + 120, contentY = containerY + 75;
+        int yPos = contentY - dialogueScrollOffset;
+
+        //scrolling area
         context.enableScissor(contentX, contentY, contentX + 128, containerY + containerHeight - 55);
         for (CheckboxWidget checkbox : this.dialogueCheckboxes.values()) {
             checkbox.setX(contentX);
@@ -225,18 +350,32 @@ public abstract class AbstractNPCScreen extends Screen {
         context.disableScissor();
     }
 
+    // mouseclick
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (this.currentTab == Tab.SKINS) {
-            int contentX = containerX + 120, contentY = containerY + 50, skinX = contentX, skinY = contentY, skinsPerRow = 3, skinSize = 40;
-            for (int skinId : skinsToRender) {
-                if (mouseX >= skinX && mouseX < skinX + skinSize && mouseY >= skinY && mouseY < skinY + skinSize) {
-                    this.selectedSkinIndex = skinId;
-                    this.previewNpc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
+            int contentX = containerX + 120, contentY = containerY + 50;
+
+            for (int i = 0; i < skinsToRender.size(); i++) {
+                int col = i % SKIN_COLUMNS;
+                int row = i / SKIN_COLUMNS;
+
+                int skinX = contentX + col * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+                int skinY = contentY + row * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+
+                int width = SKIN_CELL_SIZE;
+                int height = SKIN_CELL_SIZE;
+
+                if (mouseX >= skinX && mouseX < skinX + width &&  mouseY >= skinY && mouseY < skinY + height) {
+                    int newSkinIndex = skinsToRender.get(i);
+                    this.selectedSkinIndex = newSkinIndex;
+
+                    // update center preview immediately
+                    if (this.previewNpc != null) {
+                        this.previewNpc = getPreviewNPC(newSkinIndex);
+                    }
                     return true;
                 }
-                skinX += skinSize;
-                if ((skinsToRender.indexOf(skinId) + 1) % skinsPerRow == 0) { skinX = contentX; skinY += skinSize + 5; }
             }
         }
         if (this.currentTab == Tab.DIALOGUES) {
@@ -254,31 +393,10 @@ public abstract class AbstractNPCScreen extends Screen {
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
-    //fix to use Entity drawing with the EntityRenderDispatcher, because drawEntity is not usable anymore (old mapping)
-
     //ADD RENDERCORE
-
-    // Fields for Render State (variant and preview)
-
-    private NPCEntity previewCenter;
-    private List<Integer> toRender = new ArrayList<>();
-    private int selectedVariantIndex = -1;
-    private int originalVariant = 0;
-    private int startVariantIndex = 0;
-
-    //smoothing for center preview
-    private float smoothHeadYaw = 0.0F;
-    private float smoothPitch = 0.0F;
-
-    //constant fields for layout
-    private static final int ENTITY_SPACING = 42;       // Abstand der kleinen Vorschauen
-    private static final int ENTITY_PREVIEW_SIZE = 25;  // Größe der kleinen NPCs
-    private static final int COLUMN_WIDTH = 120;
 
     @SuppressWarnings("unchecked")
     private void renderEntity(DrawContext context, int x, int y, int scale, LivingEntity entity, boolean isPreview) {
-        if (!(entity instanceof LivingEntity living)) return;
-
         MinecraftClient client = MinecraftClient.getInstance();
         EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
 
@@ -319,7 +437,46 @@ public abstract class AbstractNPCScreen extends Screen {
                 x - scale, y - half, x + scale, y + half);
     }
 
-    // ENTITY CREATION
+    //centerpreview logic
+
+    private void renderEntityPreview(DrawContext context, int mouseX, int mouseY) {
+        if (this.previewNpc == null) {
+            this.previewNpc = getPreviewNPC(npc.getSkinManager().getBaseVariant());
+        }
+
+        NPCEntity preview = this.previewNpc;
+
+        int variant = (selectedSkinIndex == -1)  ? npc.getSkinManager().getBaseVariant() : selectedSkinIndex;
+
+        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variant));
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+
+        int px = containerX + 36;
+        int py = containerY + (containerHeight / 2) + 34;
+
+        float dx = (float)(mouseX - px);
+        float dy = (float)(mouseY - py);
+
+        float targetYaw = (-(float)Math.atan2(dx, 50.0) * (180F / (float)Math.PI)) / 2.0F;
+        float targetPitch = ((float)Math.atan2(dy, 50.0) * (180F / (float)Math.PI)) / 2.0F;
+
+        targetYaw   = MathHelper.clamp(targetYaw, -35.0F, 35.0F);
+        targetPitch = MathHelper.clamp(targetPitch, -30.0F, 30.0F);
+
+        smoothHeadYaw  += (targetYaw  - smoothHeadYaw) * 0.15F;
+        smoothPitch    += (targetPitch - smoothPitch) * 0.15F;
+
+        float bodyYaw = smoothHeadYaw * 0.1F;
+        preview.setYaw(bodyYaw);
+        preview.bodyYaw = bodyYaw;
+        preview.setHeadYaw(smoothHeadYaw);
+        preview.setPitch(smoothPitch);
+
+        renderEntity(context, px, py, CENTER_PREVIEW_SIZE, preview, true);
+    }
+
+    //preview NPC creation
 
     @SuppressWarnings("unchecked")
     private NPCEntity createPreviewNPC(int skinId) {
@@ -332,82 +489,24 @@ public abstract class AbstractNPCScreen extends Screen {
         return preview;
     }
 
-    private NPCEntity createCenterPreviewNPC(int skinId) {
-        return createPreviewNPC(skinId);
-    }
-
-    //TAB RENDERING
-
-    private void renderVariants(DrawContext context, int mouseX, int mouseY) {
-        int containerWidth = 256;
-        int containerHeight = 166;
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
-
-        int startY = containerY + 61;
-        int panelX = containerX + 77;
-        int columnWidth = (COLUMN_WIDTH / 3) - 10;
-        int columnOffset = 6;
-
-        int visibleCount = Math.min(toRender.size() - startVariantIndex, 6);
-        for (int i = startVariantIndex; i < startVariantIndex + visibleCount; i++) {
-            int row = (i - startVariantIndex) / 3;
-            int col = (i - startVariantIndex) % 3;
-            int x = panelX + col * (columnWidth + columnOffset);
-            int y = startY + row * ENTITY_SPACING;
-            renderVariantPreview(context, x, y, i, mouseX, mouseY);
+    private NPCEntity getPreviewNPC(int skinId) {
+        if (previewNpcCache.containsKey(skinId)) {
+            return previewNpcCache.get(skinId);
         }
-    }
 
-    private void renderVariantPreview(DrawContext context, int x, int y, int index, int mouseX, int mouseY) {
-        if (toRender.isEmpty()) return;
-        if (index < 0 || index >= toRender.size()) return;
+        World world = MinecraftClient.getInstance().world;
+        NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
-        NPCEntity preview = createPreviewNPC(toRender.get(index));
-        renderEntity(context, x + ENTITY_PREVIEW_SIZE, y + (ENTITY_SPACING / 2), ENTITY_PREVIEW_SIZE, preview, false);
-
-        int boxX = x + 5, boxY = y - 24, width = 39, height = ENTITY_SPACING;
-        if (mouseX >= boxX && mouseX <= boxX + width && mouseY >= boxY && mouseY <= boxY + height) {
-            int border = 2;
-            int color = 0xFFFFFFFF;
-            context.fill(boxX, boxY, boxX + width, boxY + border, color);
-            context.fill(boxX, boxY + height - border, boxX + width, boxY + height, color);
-            context.fill(boxX, boxY, boxX + border, boxY + height, color);
-            context.fill(boxX + width - border, boxY, boxX + width, boxY + height, color);
-        }
-    }
-
-    private void renderEntityPreview(DrawContext context, int mouseX, int mouseY) {
-        if (previewCenter == null) previewCenter = createCenterPreviewNPC(originalVariant);
-        NPCEntity preview = previewCenter;
-
-        int variant = (selectedVariantIndex == -1) ? originalVariant : selectedVariantIndex;
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variant));
+        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
         preview.setAiDisabled(true);
         preview.setSilent(true);
+        preview.setHeadYaw(0.0F);
 
-        int guiWidth = 256, guiHeight = 166;
-        int guiX = (this.width - guiWidth) / 2, guiY = (this.height - guiHeight) / 2;
-        int px = guiX + 36, py = guiY + (guiHeight / 2) + 34;
-
-        float dx = (float) (mouseX - px), dy = (float) (mouseY - py);
-        float targetYaw = (-(float) Math.atan2(dx, 50.0) * (180F / (float) Math.PI)) / 2.0F;
-        float targetPitch = ((float) Math.atan2(dy, 50.0) * (180F / (float) Math.PI)) / 2.0F;
-
-        targetYaw = MathHelper.clamp(targetYaw, -35.0F, 35.0F);
-        targetPitch = MathHelper.clamp(targetPitch, -30.0F, 30.0F);
-
-        smoothHeadYaw += (targetYaw - smoothHeadYaw) * 0.15F;
-        smoothPitch += (targetPitch - smoothPitch) * 0.15F;
-
-        float bodyYaw = smoothHeadYaw * 0.1F;
-        preview.setYaw(bodyYaw);
-        preview.bodyYaw = bodyYaw;
-        preview.setHeadYaw(smoothHeadYaw);
-        preview.setPitch(smoothPitch);
-
-        renderEntity(context, px, py, 35, preview, true);
+        previewNpcCache.put(skinId, preview);
+        return preview;
     }
+
+    // save and close
 
     private void saveAndClose() {
         ClientPlayNetworking.send(new NPCDataPayload(npc.getUuid(), nameInputField.getText(), stayState, followState, battleBuddyState, wanderRadiusState, dialogueOrderedState, tradePresetState));
@@ -421,19 +520,4 @@ public abstract class AbstractNPCScreen extends Screen {
         }
         this.close();
     }
-
-    private NPCEntity createPreviewNpc(int skinId) {
-        World world = MinecraftClient.getInstance().world;
-
-        EntityType<? extends PathAwareEntity> type = (EntityType<? extends PathAwareEntity>) npc.getType();
-
-        NPCEntity preview = new NPCEntity(type, world);
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
-        preview.setAiDisabled(true);
-        preview.setSilent(true);
-        preview.setHeadYaw(0.0F);
-        return preview;
-    }
-
-    protected abstract List<Integer> getSkinsToRender();
 }
