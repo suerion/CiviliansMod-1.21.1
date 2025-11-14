@@ -59,7 +59,11 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
             }
 
             if (entityById instanceof NPCEntity npcEntity) {
+                npcEntity.getSkinManager().setSkinByteArray(this.skin());
+                npcEntity.getSkinManager().setSlim(this.slim());
                 npcEntity.getSkinManager().setIdSkin(skin1);
+                npcEntity.getSkinManager().setDefaultSkin(false);
+
             }
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("error while converting skin files");

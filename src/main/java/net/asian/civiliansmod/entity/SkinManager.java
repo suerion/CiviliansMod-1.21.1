@@ -69,16 +69,20 @@ public class SkinManager {
     }
 
     void writeView(WriteView writeView) {
-        writeView.putInt("basevariat", baseVariant);
+        writeView.putInt("basevariant", baseVariant);
         if (skinByteArray != null) {
             writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
         }
     }
 
     void readNbt(ReadView readView) {
-        this.baseVariant = readView.getInt("basevariat", 0);
+        this.baseVariant = readView.getInt("basevariant", 0);
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
-        skin.ifPresent(s -> this.skinByteArray = s.skin);
+        if (skin.isPresent()) {
+            Skin s = skin.get();
+            this.skinByteArray = s.skin;
+            this.defaultSkin = false;
+        }
     }
 
     public static class Skin {
@@ -102,5 +106,8 @@ public class SkinManager {
     }
     public boolean isDefaultSkin() {
         return defaultSkin;
+    }
+    public void setDefaultSkin(boolean value) {
+        this.defaultSkin = value;
     }
 }

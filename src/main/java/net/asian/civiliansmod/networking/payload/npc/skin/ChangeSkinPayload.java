@@ -47,11 +47,14 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
         //if (skin.length != 16384) return;
-        entity.getSkinManager().setSkinByteArray(skin);
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            if (player.getUuid().equals(context.player().getUuid())) continue;
 
-            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin));
+        entity.getSkinManager().setSkinByteArray(skin);
+        entity.getSkinManager().setSlim(slim);
+        entity.getSkinManager().setDefaultSkin(false);
+
+        for (ServerPlayerEntity player : world.getPlayers()) {
+            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin)
+            );
         }
     }
 }

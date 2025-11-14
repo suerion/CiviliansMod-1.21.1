@@ -99,6 +99,8 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     protected void initDataTracker(DataTracker.Builder builder) {
         super.initDataTracker(builder);
+
+        /* Fix Order Issues with older NPC's
         builder.add(IS_PAUSED, false);
         builder.add(IS_FOLLOWING, false);
         builder.add(IS_BATTLE_BUDDY, false);
@@ -106,6 +108,17 @@ public class NPCEntity extends PathAwareEntity {
         builder.add(WANDER_RADIUS, 16.0f);
         builder.add(WANDER_ANCHOR, this.getBlockPos());
         builder.add(TRADE_PRESET, "none");
+        builder.add(DIALOGUE_ORDERED, false);
+        builder.add(DIALOGUE_INDEX, 0);
+        */
+
+        builder.add(IS_PAUSED, false);
+        builder.add(IS_FOLLOWING, false);
+        builder.add(IS_BATTLE_BUDDY, false);
+        builder.add(WANDER_RADIUS, 16.0f);
+        builder.add(TRADE_PRESET, "none");
+        builder.add(OWNER_UUID, Optional.empty());
+        builder.add(WANDER_ANCHOR, this.getBlockPos());
         builder.add(DIALOGUE_ORDERED, false);
         builder.add(DIALOGUE_INDEX, 0);
     }
@@ -158,11 +171,16 @@ public class NPCEntity extends PathAwareEntity {
         writeView.putString("TradePreset", this.getTradePreset());
         writeView.putBoolean("DialogueOrdered", this.isDialogueOrdered());
         writeView.putInt("DialogueIndex", this.getDialogueIndex());
+        // saveSKIN!!!
+        this.skinManager.writeView(writeView);
     }
 
     @Override
     protected void readCustomData(ReadView readView) {
         super.readCustomData(readView);
+
+        // loadSKIN
+        this.skinManager.readNbt(readView);
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.setFollowing(readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);
@@ -267,6 +285,7 @@ public class NPCEntity extends PathAwareEntity {
             return ActionResult.SUCCESS;
         }
     }
+
     @Override
     public boolean cannotDespawn() { return true; }
 
@@ -274,6 +293,13 @@ public class NPCEntity extends PathAwareEntity {
     public void openCustomNPCScreen() {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
+
+        SkinManager skinManager = this.getSkinManager();
+
+        if (!skinManager.isDefaultSkin() && skinManager.getSkinByteArray() != null && skinManager.getIdSkin() != null) {
+            client.setScreen(new CustomNPCScreen(this));
+            return;
+        }
 
         int baseVariant = this.getSkinManager().getBaseVariant();
         SkinIdentifier skinId = NPCUtil.getNPCTexture(baseVariant);
@@ -289,18 +315,26 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public Vec3d getLeashOffset() { return new Vec3d(0.0, 0.9, 0.0); }
+
     public boolean canBeLeashedBy(PlayerEntity player) { return !this.isLeashed() && !this.isBattleBuddy(); }
     public boolean hasSentTo(UUID playerId) { return sent != null && sent.contains(playerId); }
     public void markSentTo(UUID playerId) { if (sent != null) { sent.add(playerId); } }
+
     @Override
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
         if (this.getWorld().isClient) {
             SkinIdentifier skinIdentifier = NPCUtil.waitingSync.get(this.getId());
-            if (skinIdentifier != null) { this.skinManager.setIdSkin(skinIdentifier); }
+            if (skinIdentifier != null) {
+                this.skinManager.setIdSkin(skinIdentifier);
+                if (skinIdentifier.custom()) {
+                    this.skinManager.setDefaultSkin(false);
+                }
+            }
             updateDialoguesTicks = 10;
         }
     }
+
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
         if (!this.getWorld().isClient) {
