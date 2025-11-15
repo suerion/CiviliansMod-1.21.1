@@ -70,11 +70,13 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         livingEntityRenderState.slim = livingEntity.getSkinManager().isSlimModel();
         Identifier newSkin = livingEntity.getSkinManager().getIdSkin().id();
 
-        if (livingEntityRenderState.texture == null
-                || !livingEntityRenderState.texture.toString().equals(newSkin.toString())) {
-
-            CiviliansMod.LOGGER.info("[Renderer] Texture changed -> updating state for NPC {}", livingEntity.getId());
-            livingEntityRenderState.texture = newSkin;
+        if (CiviliansMod.DEBUG_TEXTURE) {
+            CiviliansMod.LOGGER.info("[Renderer/Texture] NPC {} -> {}", livingEntity.getId(), newSkin);
         }
+        if (CiviliansMod.DEBUG_RENDER) {
+            CiviliansMod.LOGGER.info("[Renderer/State] slim={} id={}", livingEntityRenderState.slim, livingEntity.getId());
+        }
+
+        livingEntityRenderState.texture = newSkin;
     }
 }

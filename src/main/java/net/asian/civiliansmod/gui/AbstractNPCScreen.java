@@ -119,8 +119,8 @@ public abstract class AbstractNPCScreen extends Screen {
         super.init();
 
         //background box
-        this.containerWidth = 256;
-        this.containerHeight = 200;
+        this.containerWidth = 286;
+        this.containerHeight = 191;
         this.containerX = (this.width - this.containerWidth) / 2;
         this.containerY = (this.height - this.containerHeight) / 2;
 
@@ -185,30 +185,86 @@ public abstract class AbstractNPCScreen extends Screen {
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"), (btn) -> this.client.setScreen(new CustomNPCScreen(this.npc))).dimensions(containerX + 8, containerY + 72, 100, 20).build());
             }
             case AI -> {
-                // stay checkbox
-                this.addDrawableChild(new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> { this.stayState = checked; if (checked) this.followState = false; this.switchTab(Tab.AI); }));
 
-                //follow checkbox
-                CheckboxWidget followCheckbox = new CheckboxWidget(contentX, contentY + 25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> { this.followState = checked; if (checked) this.stayState = false; this.switchTab(Tab.AI); });
-                followCheckbox.active = !this.stayState;
-                this.addDrawableChild(followCheckbox);
+                final CheckboxWidget[] stayCheckbox = new CheckboxWidget[1];
+                final CheckboxWidget[] followCheckbox = new CheckboxWidget[1];
 
-                //battle buddy checkbox
-                this.addDrawableChild(new CheckboxWidget(contentX, contentY + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> { this.battleBuddyState = checked; this.switchTab(Tab.AI); }));
+                followCheckbox[0] = new CheckboxWidget(contentX, contentY + 25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> {
+                    if (this.followState != checked) {
+                        this.followState = checked;
+                    }
+                    if (checked) {
+                        this.stayState = false;
+                        stayCheckbox[0].setChecked(false);
+                    }
+                    stayCheckbox[0].active = !checked;
+                    this.clearAndInit();
+                    }
+                );
 
-                //wanderslider radius
-                SliderWidget wanderSlider = new SliderWidget(contentX - 5, contentY + 80, contentWidth, 20, Text.literal("Wander: " + (int)this.wanderRadiusState), (this.wanderRadiusState - 4.0) / 60.0) {
+                stayCheckbox[0] = new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> {
+                    if (this.stayState != checked) {
+                        this.stayState = checked;
+                    }
+                    if (checked) {
+                        this.followState = false;
+                        followCheckbox[0].setChecked(false);
+                    }
+                    followCheckbox[0].active = !checked;
+                    this.clearAndInit();
+                    }
+                );
 
-                    @Override
-                    protected void updateMessage() { setMessage(Text.literal("Wander: " + (int)getValue())); }
+                followCheckbox[0].active = !this.stayState;
+                stayCheckbox[0].active = !this.followState;
 
-                    @Override
-                    protected void applyValue() { wanderRadiusState = (float)getValue(); }
+                this.addDrawableChild(stayCheckbox[0]);
+                this.addDrawableChild(followCheckbox[0]);
 
-                    private double getValue() { return 4.0 + this.value * 60.0; }
-                };
-                wanderSlider.active = !this.stayState && !this.followState;
-                this.addDrawableChild(wanderSlider);
+                this.addDrawableChild(new CheckboxWidget(contentX, contentY + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> {
+                    this.battleBuddyState = checked;
+
+                    if (checked) {
+                        this.stayState = false;
+                        this.followState = false;
+
+                        stayCheckbox[0].setChecked(false);
+                        followCheckbox[0].setChecked(false);
+
+                        stayCheckbox[0].active = false;
+                        followCheckbox[0].active = false;
+                    } else {
+                        stayCheckbox[0].active = true;
+                        followCheckbox[0].active = true;
+                    }
+
+                    this.clearAndInit();
+                }));
+
+                if (!this.stayState && !this.followState && !this.battleBuddyState) {
+                    SliderWidget wanderSlider =
+                            new SliderWidget(
+                                    contentX - 5, contentY + 80,
+                                    contentWidth, 20,
+                                    Text.literal("Wander: " + (int) this.wanderRadiusState),
+                                    (this.wanderRadiusState - 4.0) / 60.0
+                            ) {
+                                @Override
+                                protected void updateMessage() {
+                                    setMessage(Text.literal("Wander: " + (int) getValue()));
+                                }
+
+                                @Override
+                                protected void applyValue() {
+                                    wanderRadiusState = (float) getValue();
+                                }
+
+                                private double getValue() {
+                                    return 4.0 + this.value * 60.0;
+                                }
+                            };
+                    this.addDrawableChild(wanderSlider);
+                }
             }
             case DIALOGUES -> {
                 // set order of dialouges
@@ -265,7 +321,8 @@ public abstract class AbstractNPCScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         //background texture
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.of("civiliansmod", "gui/gui"), containerX, containerY, containerWidth, containerHeight);
+        Identifier guiTexture = Identifier.of("civiliansmod", "textures/gui/largergui.png");
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, guiTexture, containerX, containerY, 0, 0, containerWidth, containerHeight, containerWidth, containerHeight,0xFFFFFFFF);
 
         //vanilla render
         super.render(context, mouseX, mouseY, delta);
@@ -517,7 +574,14 @@ public abstract class AbstractNPCScreen extends Screen {
     private void saveAndClose() {
         ClientPlayNetworking.send(new NPCDataPayload(npc.getUuid(), nameInputField.getText(), stayState, followState, battleBuddyState, wanderRadiusState, dialogueOrderedState, tradePresetState));
         SkinIdentifier selected = getSelectedSkin();
+
+        if (selectedSkinIndex == -1) {
+            this.close();
+            return;
+        }
+
         byte[] data = NPCUtil.images.getOrDefault(selected, null);
+
         if (selected.custom()) {
             npc.getSkinManager().setSkinByteArray(data);
             npc.getSkinManager().setIdSkin(selected);

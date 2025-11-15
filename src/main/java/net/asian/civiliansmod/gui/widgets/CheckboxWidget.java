@@ -12,14 +12,12 @@ import net.minecraft.util.Identifier;
 
 import java.util.function.Consumer;
 
-import static net.minecraft.client.render.entity.ArrowEntityRenderer.TEXTURE;
-
 public class CheckboxWidget extends PressableWidget {
 
-    private static final Identifier UNCHECKED = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox.png");
-    private static final Identifier UNCHECKED_HL = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_highlighted.png");
-    private static final Identifier CHECKED = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_selected.png");
-    private static final Identifier CHECKED_HL = Identifier.of("minecraft", "textures/gui/sprites/widget/checkbox_selected_highlighted.png");
+    private static final Identifier UNCHECKED = Identifier.of("minecraft", "widget/checkbox");
+    private static final Identifier UNCHECKED_HL = Identifier.of("minecraft", "widget/checkbox_highlighted");
+    private static final Identifier CHECKED = Identifier.of("minecraft", "widget/checkbox_selected");
+    private static final Identifier CHECKED_HL = Identifier.of("minecraft", "widget/checkbox_selected_highlighted");
 
     private boolean checked;
     private final Consumer<Boolean> action;
@@ -42,22 +40,22 @@ public class CheckboxWidget extends PressableWidget {
         return this.checked;
     }
 
+    public void setChecked(boolean checked) {
+        this.checked = checked;
+    }
+
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
         super.renderWidget(context, mouseX, mouseY, delta);
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        TextRenderer textRenderer = client.textRenderer;
-
-        Identifier texture;
-
+        Identifier sprite;
         if (checked) {
-            texture = this.isHovered() ? CHECKED_HL : CHECKED;
+            sprite = this.isHovered() ? CHECKED_HL : CHECKED;
         } else {
-            texture = this.isHovered() ? UNCHECKED_HL : UNCHECKED;
+            sprite = this.isHovered() ? UNCHECKED_HL : UNCHECKED;
         }
 
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, texture, getX(), getY(), 20, 20);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite, getX(), getY(), 20, 20);
 
         // Draw the label text
         TextRenderer renderer = MinecraftClient.getInstance().textRenderer;

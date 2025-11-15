@@ -29,6 +29,13 @@ public class CiviliansMod implements ModInitializer {
     public static final String MOD_ID = "civiliansmod";
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
+    //debug fields only for debug options in dev
+    public static final boolean DEBUG_TEXTURE = true;   // texture debug to logger
+    public static final boolean DEBUG_AI = true;       // AI-Tab debug to logger
+    public static final boolean DEBUG_NETWORK = true;  // networking debug to logger
+    public static final boolean DEBUG_RENDER = true;    // renderer debug to logger
+    public static final boolean DEBUG_GUI = true; // gui debug to logger
+
     public static Map<UUID, String> playerLanguages = new HashMap<>();
 
     public static final TrackedDataHandler<Optional<UUID>> OPTIONAL_UUID = TrackedDataHandler.create(PacketCodecs.optional(Uuids.PACKET_CODEC));
