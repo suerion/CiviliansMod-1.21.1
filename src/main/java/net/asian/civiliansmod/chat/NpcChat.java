@@ -155,7 +155,14 @@ public class NpcChat {
 
     public enum ChatReason {
         HURT("hurt"),
-        INTERACT("interact");
+        INTERACT("interact"),
+        IDLE("idle"),
+        GREET("greet"),
+        ATTACK("attack"),
+        RANDOM("random"),
+        FOLLOW("follow"),
+        TRADE("trade");
+
 
         final String name;
 

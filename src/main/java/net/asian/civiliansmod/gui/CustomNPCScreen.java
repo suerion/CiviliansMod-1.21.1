@@ -4,7 +4,6 @@ import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.custom_skins.SkinFolderManager;
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.gui.widgets.ImageButtonWidget;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.minecraft.client.gui.widget.ButtonWidget;
@@ -46,17 +45,6 @@ public class CustomNPCScreen extends AbstractNPCScreen {
             this.addDrawableChild(ButtonWidget.builder(Text.literal("↑ Open Slim Folder"), button -> SkinFolderManager.openFolder(SkinFolderManager.NPCModel.SLIM))
                     .dimensions(containerX + 8, containerY + 116, 100, 20).build());
             
-            // Add the refresh button
-            this.addDrawableChild(new ImageButtonWidget(
-                containerX + 93, containerY + 138, 15, 15, // Positioned at the bottom right of the left panel
-                Identifier.of(CiviliansMod.MOD_ID, "textures/gui/reset_button.png"),
-                (press) -> {
-                    NPCUtil.refreshTextures();
-                    NpcChat.refresh();
-                    // Reload the screen to show any new skins that were added
-                    this.client.setScreen(new CustomNPCScreen(this.npc));
-                }
-            ));
         }
     }
 }

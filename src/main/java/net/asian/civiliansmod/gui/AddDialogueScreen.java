@@ -10,17 +10,12 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.text.Text;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 public class AddDialogueScreen extends AbstractDialogueEditionScreen {
-
-    private final boolean customMode;
-
-    public AddDialogueScreen(NPCEntity npc, String text, NpcChat.ChatReason reason, CustomChatScreen parent, boolean customMode) {
+    public AddDialogueScreen(NPCEntity npc, String text, NpcChat.ChatReason reason, AbstractNPCScreen parent) {
         super(npc, text, reason, parent);
-        this.customMode = customMode;
     }
 
     @Override
@@ -36,19 +31,11 @@ public class AddDialogueScreen extends AbstractDialogueEditionScreen {
                 return; // no space in input
             }
 
-            if (customMode) {
-                npc.getChatManager().getCustomDialogues().computeIfAbsent(reason, r -> new ArrayList<>()).add(input);
-            } else {
-                Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getTranslatedDialogues(language);
-                for (NpcChat.ChatReason r : NpcChat.ChatReason.values()) {
-                    langMap.computeIfAbsent(r, o -> new ArrayList<>(Collections.singletonList("...")));
-                }
-                langMap.get(reason).add(input);
-            }
-
-            parent.fullInit();
-            AddDialoguePayload payload = new AddDialoguePayload(npc.getUuid(), reason.toString(), language, input, customMode);
-            ClientPlayNetworking.send(payload);
+            Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getTranslatedDialogues(language);
+            langMap.computeIfAbsent(reason, r -> new ArrayList<>());
+            langMap.get(reason).add(input);
+            ClientPlayNetworking.send(new AddDialoguePayload(npc.getUuid(), reason.toString(), language, input));
+            parent.openDialoguesTab();
             MinecraftClient.getInstance().setScreen(parent);
         }, 0xFFFFFF, 0xFF00FF00);
 

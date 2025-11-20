@@ -11,7 +11,6 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricDefaultAttributeRegistry;
 import net.fabricmc.fabric.api.object.builder.v1.entity.FabricTrackedDataRegistry;
 import net.minecraft.entity.data.TrackedDataHandler;
-import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
@@ -30,11 +29,11 @@ public class CiviliansMod implements ModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     //debug fields only for debug options in dev
-    public static final boolean DEBUG_TEXTURE = true;   // texture debug to logger
-    public static final boolean DEBUG_AI = true;       // AI-Tab debug to logger
-    public static final boolean DEBUG_NETWORK = true;  // networking debug to logger
-    public static final boolean DEBUG_RENDER = true;    // renderer debug to logger
-    public static final boolean DEBUG_GUI = true; // gui debug to logger
+    public static final boolean DEBUG_TEXTURE = false;   // texture debug to logger
+    public static final boolean DEBUG_AI = false;       // AI-Tab debug to logger
+    public static final boolean DEBUG_NETWORK = false;  // networking debug to logger
+    public static final boolean DEBUG_RENDER = false;    // renderer debug to logger
+    public static final boolean DEBUG_GUI = false; // gui debug to logger
 
     public static Map<UUID, String> playerLanguages = new HashMap<>();
 

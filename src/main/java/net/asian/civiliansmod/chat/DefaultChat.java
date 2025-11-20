@@ -10,6 +10,7 @@ public class DefaultChat {
         dialogues.put("en_us", getEnglish());
         dialogues.put("fr_fr", getFrench());
         dialogues.put("fr_ca", getCanadianFrench());
+        dialogues.put("de_de", getGerman());
 
         return dialogues;
     }
@@ -174,5 +175,57 @@ public class DefaultChat {
         quebec.put(NpcChat.ChatReason.HURT, quebecHurt);
         quebec.put(NpcChat.ChatReason.INTERACT, quebecInteraction);
         return quebec;
+    }
+
+    private static Map<NpcChat.ChatReason, List<String>> getGerman(){
+        Map<NpcChat.ChatReason, List<String>> german = new LinkedHashMap<>();
+        List<String> germanHurt = new ArrayList<>(List.of(
+                "Tabarnak! Ça fait mal!",
+                "Pourquoi tu fais ça, câlisse?!",
+                "Arrête de me frapper, ostie!",
+                "T'es-tu en train de niaiser, toi là?",
+                "Steuplait, arrête de me sacrer des coups!",
+                "Quessé j’ai fait pour mériter ça, maudit?!",
+                "Fais attention, tu sais pas à qui tu t’attaques.",
+                "Aye, ostie!",
+                "DÉCALISSE!",
+                "Hey... arrête stp, j’ai déjà eu une maudite grosse journée.",
+                "SI SEULEMENT Y AVAIT UN HÉROS POUR ME SAUVER, TABARNAK!",
+                "Les chums sont pas supposés se taper dessus!",
+                "@$%#&!!"
+        ));
+        List<String> germanInteraction = new ArrayList<>(List.of(
+                "Salut là, voyageur ! Quessé j’peux faire pour toi ?",
+                "J'espère que t’as une belle journée.",
+                "Fais attention, le monde est ben dangereux.",
+                "Y'aurait un trésor caché pas loin… du moins, c’est c’qui se dit.",
+                "Fais pas trop de conneries, hein !",
+                "Chu là pour t’aider, mon chum.",
+                "Quessé tu veux que j'fasse pour toi ?",
+                "J’ai la dalle... T’as pas un p’tit quelque chose à manger ?",
+                "Faudrait que j'aille checker ma vue, tout est full pixelisé !",
+                "Des fois, j’ai l’impression d’être dans un rêve. J’sais pas quoi faire.",
+                "Hey ! J’peux t’aider avec de quoi, voyageur ?",
+                "Y’en a qui disent que la Terre est plate... peux-tu croire ça ?",
+                "Pas le temps de jaser là, désolé !",
+                "Ouin, t’as du style toi, j’pourrais ben te copier !",
+                "Faut que je trouve l’trésor caché, paraîtrait qu’il est dans l’coin.",
+                "J’adore icitte, c’est ben l’fun d’être là !",
+                "J’espère que quelqu’un a sacré son camp à c’dragon-là… j’suis sûr qu’il est pu là.",
+                "Ça te tente-tu d’aller chasser avec moi ?",
+                "T’as pas vu mon chum ? Y’est toujours en train de niaiser.",
+                "Espérons que ça devienne pas trop plein icitte...",
+                "J’suis surpris qu’y ait pas plus de monde dans l’coin...",
+                "Ben content de te voir, voyageur !",
+                "Quand les oiseaux chantent, j’peux pas m’empêcher de chanter aussi.",
+                "J’feel en tabarnak... FAUT... FAUT... QUE J’ME CALME !",
+                "Oups ! Pardon, laisse-moi passer là.",
+                "L’obscurité m’envahit...",
+                "TABARNAK J'SUIS CONTENT DE TE REVOIR ! J'T'AIME !",
+                "Hey, tu gères ça comme un chef !"
+        ));
+        german.put(NpcChat.ChatReason.HURT, germanHurt);
+        german.put(NpcChat.ChatReason.INTERACT, germanInteraction);
+        return german;
     }
 }

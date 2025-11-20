@@ -3,6 +3,7 @@ package net.asian.civiliansmod.gui;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
+import net.asian.civiliansmod.gui.widgets.DialogueListWidget;
 import net.asian.civiliansmod.networking.NPCDataPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.MassRemoveDialoguePayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
@@ -34,6 +35,52 @@ import java.util.*;
 
 public abstract class AbstractNPCScreen extends Screen {
 
+    //refactore GUI positions
+    private static final int TABS_X = 10;
+    private static final int TABS_Y = 10;
+    private static final int TAB_WIDTH = 64;
+    private static final int TAB_HEIGHT = 20;
+    private static final int TAB_SPACING = 4;
+
+
+    private static final int PREVIEW_X = 16;   // linker Rand der roten Box
+    private static final int PREVIEW_Y = 30;   // oberer Rand der roten Box
+    private static final int PREVIEW_W = 64;   // Breite der roten Box
+    private static final int PREVIEW_H = 110;  // Höhe der roten Box
+    private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
+
+    private static final int NAME_X = 10;
+    private static final int NAME_Y = 38;
+    private static final int NAME_W = 90;
+    private static final int NAME_H = 18;
+
+    // constants for small preview layout
+    private static final int SKIN_CELL_SPACING = 1;
+    private static final int SKIN_CELL_W = 38;
+    private static final int SKIN_CELL_H = 62;
+    private static final int SKIN_COLUMNS = 3;
+    private static final int GRID_X = 84;
+    private static final int GRID_Y = 32;
+    private static final int GRID_W = (SKIN_COLUMNS * SKIN_CELL_W) + ((SKIN_COLUMNS - 1) * SKIN_CELL_SPACING);
+    private static final int GRID_H = (2 * SKIN_CELL_H) + ((2 - 1) * SKIN_CELL_SPACING);
+    private static final int ENTITY_PREVIEW_SIZE = 25; // small NPCs
+    private int skinScrollOffset = 0;
+
+    //constante for buttons
+    private static final int BTN_SKIN_X = GRID_X + GRID_W;
+    private static final int BTN_SKIN_Y = GRID_Y + 4;
+    private static final int BTN_SKIN_W = 40;
+    private static final int BTN_SKIN_H = 18;
+    private static final int BTN_SKIN_SPACING = 6;
+
+    private static final int BTN_CUSTOM_WIDTH = 52;
+    private static final int BTN_CUSTOM_Y_OFFSET = (BTN_SKIN_H + BTN_SKIN_SPACING) * 2;
+
+    private int DIALOG_X;
+    private int DIALOG_Y;
+    private int DIALOG_W;
+    private int DIALOG_H;
+
     protected enum Tab {
         SKINS("Skins"), AI("Behavior"), DIALOGUES("Dialogues"), TRADES("Trades");
         private final Text title;
@@ -56,14 +103,11 @@ public abstract class AbstractNPCScreen extends Screen {
     private int selectedSkinIndex = -1;
     private int originalVariantIndex = 0;
 
+    private DialogueListWidget dialogueList;
+
     //AI state
     private boolean battleBuddyState, stayState, followState, dialogueOrderedState;
     private float wanderRadiusState;
-
-    //Dialogues state
-    private final Map<String, CheckboxWidget> dialogueCheckboxes = new LinkedHashMap<>();
-    private ButtonWidget deleteDialogueButton;
-    private int dialogueScrollOffset = 0;
 
     //Trade State
     private String tradePresetState;
@@ -74,14 +118,6 @@ public abstract class AbstractNPCScreen extends Screen {
     //smooth head rotation
     private float smoothHeadYaw = 0.0F;
     private float smoothPitch = 0.0F;
-
-    // constants for small preview layout
-    private static final int SKIN_CELL_SIZE = 40;
-    private static final int SKIN_CELL_SPACING = 5;
-    private static final int SKIN_COLUMNS = 3;
-
-    private static final int ENTITY_PREVIEW_SIZE = 25; // small NPCs
-    private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
 
     private boolean pendingTabSwitch = false;
     private Tab tabToSwitchTo = null;
@@ -116,6 +152,8 @@ public abstract class AbstractNPCScreen extends Screen {
 
     @Override
     protected void init() {
+        this.selectedSkinIndex = npc.getSkinManager().getBaseVariant();
+        previewNpcCache.clear();
         super.init();
 
         //background box
@@ -124,6 +162,11 @@ public abstract class AbstractNPCScreen extends Screen {
         this.containerX = (this.width - this.containerWidth) / 2;
         this.containerY = (this.height - this.containerHeight) / 2;
 
+        this.DIALOG_X = this.containerX + PREVIEW_X + PREVIEW_W + 30;
+        this.DIALOG_Y = this.containerY + 40;
+        this.DIALOG_W = 140;
+        this.DIALOG_H = this.containerHeight - 75;
+
         // center preview NPC
         if (this.client != null && this.client.world != null && this.previewNpc == null) {
             this.previewNpc = this.createPreviewNPC(npc.getSkinManager().getBaseVariant());
@@ -131,7 +174,7 @@ public abstract class AbstractNPCScreen extends Screen {
 
         // name field
         String currentName = npc.getCustomName() != null ? npc.getCustomName().getString() : "";
-        this.nameInputField = new TextFieldWidget(this.textRenderer, containerX + 8, containerY + 28, 100, 18, Text.empty());
+        this.nameInputField = new TextFieldWidget(this.textRenderer, containerX + NAME_X, containerY + NAME_Y, NAME_W, NAME_H, Text.empty());
         this.nameInputField.setText(currentName);
         this.nameInputField.setMaxLength(32);
         this.addSelectableChild(this.nameInputField);
@@ -141,11 +184,13 @@ public abstract class AbstractNPCScreen extends Screen {
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), b -> this.close()).dimensions(containerX + 8, containerY + containerHeight - 28, 80, 20).build());
 
         //tab buttons
-        int tabY = containerY + 5;
-        this.addDrawableChild(ButtonWidget.builder(Tab.SKINS.title, b -> this.switchTab(Tab.SKINS)).dimensions(containerX + 115, tabY, 65, 20).build());
-        this.addDrawableChild(ButtonWidget.builder(Tab.AI.title, b -> this.switchTab(Tab.AI)).dimensions(containerX + 185, tabY, 65, 20).build());
-        this.addDrawableChild(ButtonWidget.builder(Tab.DIALOGUES.title, b -> this.switchTab(Tab.DIALOGUES)).dimensions(containerX + 115, tabY + 22, 65, 20).build());
-        this.addDrawableChild(ButtonWidget.builder(Tab.TRADES.title, b -> this.switchTab(Tab.TRADES)).dimensions(containerX + 185, tabY + 22, 65, 20).build());
+        int tabStartX = containerX + TABS_X;
+        int tabStartY = containerY + TABS_Y;
+
+        this.addDrawableChild(ButtonWidget.builder(Tab.SKINS.title, b -> this.switchTab(Tab.SKINS)).dimensions(tabStartX, tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.AI.title, b -> this.switchTab(Tab.AI)).dimensions(tabStartX + (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.DIALOGUES.title, b -> this.switchTab(Tab.DIALOGUES)).dimensions(tabStartX + 2 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.TRADES.title, b -> this.switchTab(Tab.TRADES)).dimensions(tabStartX + 3 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
 
         //tab widgets
         this.initTabWidgets();
@@ -155,6 +200,15 @@ public abstract class AbstractNPCScreen extends Screen {
         if (this.currentTab != newTab) {
             this.tabToSwitchTo = newTab;
             this.pendingTabSwitch = true;
+        }
+    }
+
+    public void openDialoguesTab() {
+        this.currentTab = Tab.DIALOGUES;
+        this.clearAndInit();
+
+        if (this.dialogueList != null) {
+            this.dialogueList.reloadFromNPC();
         }
     }
 
@@ -170,8 +224,12 @@ public abstract class AbstractNPCScreen extends Screen {
     }
 
     private void initTabWidgets() {
-        int contentX = containerX + 120;
-        int contentY = containerY + 50;
+        int buttonx = containerX + BTN_SKIN_X;
+        int buttony = containerY + BTN_SKIN_Y;
+
+        int contentX = containerX + GRID_X;
+        int contentY = containerY + GRID_Y;
+
         int contentWidth = 128;
         switch (this.currentTab) {
             case SKINS -> {
@@ -180,40 +238,66 @@ public abstract class AbstractNPCScreen extends Screen {
                 this.skinsToRender = (list != null) ? list : Collections.emptyList();
 
                 //skin type switch buttons
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"), (btn) -> this.client.setScreen(new DefaultNPCScreen(this.npc))).dimensions(containerX + 8, containerY + 50, 49, 20).build());
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"), (btn) -> this.client.setScreen(new SlimNPCScreen(this.npc))).dimensions(containerX + 59, containerY + 50, 49, 20).build());
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"), (btn) -> this.client.setScreen(new CustomNPCScreen(this.npc))).dimensions(containerX + 8, containerY + 72, 100, 20).build());
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"), (btn) -> this.client.setScreen(new DefaultNPCScreen(this.npc))).dimensions(buttonx, buttony, BTN_SKIN_W, BTN_SKIN_H).build());
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"), (btn) -> this.client.setScreen(new SlimNPCScreen(this.npc))).dimensions(buttonx + BTN_SKIN_W + BTN_SKIN_SPACING, buttony, BTN_SKIN_W, BTN_SKIN_H).build());
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"), (btn) -> this.client.setScreen(new CustomNPCScreen(this.npc))).dimensions(buttonx, buttony + BTN_CUSTOM_Y_OFFSET, BTN_CUSTOM_WIDTH, BTN_SKIN_H).build());
             }
             case AI -> {
 
+                int x = contentX;
+                int y = contentY;
+
                 final CheckboxWidget[] stayCheckbox = new CheckboxWidget[1];
                 final CheckboxWidget[] followCheckbox = new CheckboxWidget[1];
+                final CheckboxWidget[] battleBuddyCheckbox = new CheckboxWidget[1];
 
-                followCheckbox[0] = new CheckboxWidget(contentX, contentY + 25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> {
+                //FOLLOW
+                followCheckbox[0] = new CheckboxWidget(x, y +25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> {
                     if (this.followState != checked) {
                         this.followState = checked;
                     }
                     if (checked) {
+                        //follow on, stay off
                         this.stayState = false;
                         stayCheckbox[0].setChecked(false);
+                        //now the battlebuddycheckbox is activated
+                        battleBuddyCheckbox[0].active = true;
+                    } else {
+                        //follow off, battlebuddy should not activated
+                        if (this.battleBuddyState) {
+                            this.battleBuddyState = false;
+                            battleBuddyCheckbox[0].setChecked(false);
+                        }
+                        battleBuddyCheckbox[0].active = false;
                     }
-                    stayCheckbox[0].active = !checked;
+                    //if stay and follow disable, wander slider should activated
                     this.clearAndInit();
                     }
                 );
 
-                stayCheckbox[0] = new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> {
+                //STAY
+                stayCheckbox[0] = new CheckboxWidget(x, y, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> {
                     if (this.stayState != checked) {
                         this.stayState = checked;
                     }
                     if (checked) {
+                        //stay on, follow off
                         this.followState = false;
                         followCheckbox[0].setChecked(false);
+
+                        //battlebuddy should not activated
+                        if (this.battleBuddyState) {
+                            this.battleBuddyState = false;
+                            battleBuddyCheckbox[0].setChecked(false);
+                        }
+                        battleBuddyCheckbox[0].active = false;
+                    } else {
+                        // Stay off , if follow activated, battlebuddy could activated
+                        battleBuddyCheckbox[0].active = this.followState;
                     }
-                    followCheckbox[0].active = !checked;
+
                     this.clearAndInit();
-                    }
-                );
+                });
 
                 followCheckbox[0].active = !this.stayState;
                 stayCheckbox[0].active = !this.followState;
@@ -221,74 +305,55 @@ public abstract class AbstractNPCScreen extends Screen {
                 this.addDrawableChild(stayCheckbox[0]);
                 this.addDrawableChild(followCheckbox[0]);
 
-                this.addDrawableChild(new CheckboxWidget(contentX, contentY + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> {
+                battleBuddyCheckbox[0] =new CheckboxWidget(x, y + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> {
                     this.battleBuddyState = checked;
 
                     if (checked) {
+                        // battlebuddy only on follow, strict follow activated
+                        this.followState = true;
                         this.stayState = false;
-                        this.followState = false;
 
+                        followCheckbox[0].setChecked(true);
                         stayCheckbox[0].setChecked(false);
-                        followCheckbox[0].setChecked(false);
 
+                        // if follow, stay are not activated
                         stayCheckbox[0].active = false;
-                        followCheckbox[0].active = false;
                     } else {
-                        stayCheckbox[0].active = true;
-                        followCheckbox[0].active = true;
+                        // battlebuddy off
+                        // follow should be follow
+                        stayCheckbox[0].active = !this.followState;
                     }
-
                     this.clearAndInit();
-                }));
+                });
 
+                //battle buddy only clickable if floow activated
+                battleBuddyCheckbox[0].active = this.followState;
+                this.addDrawableChild(battleBuddyCheckbox[0]);
+
+                //wanderslider only if no stay, no follow, no battlebuddy
                 if (!this.stayState && !this.followState && !this.battleBuddyState) {
-                    SliderWidget wanderSlider =
-                            new SliderWidget(
-                                    contentX - 5, contentY + 80,
-                                    contentWidth, 20,
-                                    Text.literal("Wander: " + (int) this.wanderRadiusState),
-                                    (this.wanderRadiusState - 4.0) / 60.0
-                            ) {
-                                @Override
-                                protected void updateMessage() {
-                                    setMessage(Text.literal("Wander: " + (int) getValue()));
-                                }
+                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) this.wanderRadiusState),(this.wanderRadiusState - 4.0) / 60.0) {
+                        @Override
+                        protected void updateMessage() {
+                            //only current mapped value
+                            setMessage(Text.literal("Wander: " + (int) getValue()));
+                        }
 
-                                @Override
-                                protected void applyValue() {
-                                    wanderRadiusState = (float) getValue();
-                                }
+                        @Override
+                        protected void applyValue() {
+                            //store mapped wander radius
+                            wanderRadiusState = (float) getValue();
+                        }
 
-                                private double getValue() {
-                                    return 4.0 + this.value * 60.0;
-                                }
-                            };
+                        private double getValue() {
+                            return 4.0 + this.value * 60.0;
+                        }
+                    };
                     this.addDrawableChild(wanderSlider);
                 }
             }
             case DIALOGUES -> {
-                // set order of dialouges
-                this.addDrawableChild(new CheckboxWidget(contentX, contentY, 100, 20, Text.literal("Ordered"), this.dialogueOrderedState, (checked) -> this.dialogueOrderedState = checked));
-
-                //delete selected button
-                this.deleteDialogueButton = ButtonWidget.builder(Text.literal("Delete Selected"), (b) -> this.deleteSelectedDialogues()).dimensions(contentX, containerY + containerHeight - 52, 128, 20).build();
-                this.addDrawableChild(this.deleteDialogueButton);
-
-                //fill dialogue list with checkboxes
-                this.dialogueCheckboxes.clear();
-                Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getDialoguesForLanguage("en_us");
-                List<String> dialogues = (langMap != null) ? langMap.get(NpcChat.ChatReason.INTERACT) : null;
-                if (dialogues != null) {
-                    for (String dialogue : dialogues) {
-                        String truncated = dialogue.length() > 15 ? dialogue.substring(0, 14) + "..." : dialogue;
-                        CheckboxWidget cb = new CheckboxWidget(0, 0, 100, 12, Text.literal(truncated), false, (c) -> this.updateDeleteButton());
-                        this.dialogueCheckboxes.put(dialogue, cb);
-                    }
-                }
-                updateDeleteButton();
-            }
-            case TRADES -> {
-                this.addDrawableChild(CyclingButtonWidget.builder(Text::literal).values(TradeManager.getPresetNames()).initially(this.tradePresetState).build(contentX, contentY, contentWidth, 20, Text.literal("Preset"), (b, value) -> this.tradePresetState = value));
+                this.dialogueList = new DialogueListWidget(npc, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H);
             }
         }
     }
@@ -296,36 +361,21 @@ public abstract class AbstractNPCScreen extends Screen {
     //abstract method for subclasses to define which skin indices they want to render
     protected abstract List<Integer> getSkinsToRender();
 
-    //dialogues logic
-    private void deleteSelectedDialogues() {
-        List<String> toRemove = new ArrayList<>();
-        this.dialogueCheckboxes.forEach((dialogue, checkbox) -> { if (checkbox.isChecked()) { toRemove.add(dialogue); } });
-        if (!toRemove.isEmpty()) {
-            ClientPlayNetworking.send(new MassRemoveDialoguePayload(npc.getId(), "en_us", NpcChat.ChatReason.INTERACT, toRemove));
-            Map<NpcChat.ChatReason, List<String>> langMap = npc.getChatManager().getDialoguesForLanguage("en_us");
-            if (langMap != null) {
-                List<String> list = langMap.get(NpcChat.ChatReason.INTERACT);
-                if (list != null) {
-                    list.removeAll(toRemove);
-                }
-            }
-            this.switchTab(Tab.DIALOGUES);
-        }
-    }
-
-    private void updateDeleteButton() {
-        if (this.deleteDialogueButton != null) { this.deleteDialogueButton.active = this.dialogueCheckboxes.values().stream().anyMatch(CheckboxWidget::isChecked); }
-    }
-
     //render
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         //background texture
-        Identifier guiTexture = Identifier.of("civiliansmod", "textures/gui/largergui.png");
+        Identifier guiTexture =
+                (this.currentTab == Tab.DIALOGUES)
+                        ? Identifier.of("civiliansmod", "textures/gui/largerdialogue.png")
+                        : Identifier.of("civiliansmod", "textures/gui/largergui.png");
         context.drawTexture(RenderPipelines.GUI_TEXTURED, guiTexture, containerX, containerY, 0, 0, containerWidth, containerHeight, containerWidth, containerHeight,0xFFFFFFFF);
 
         //vanilla render
         super.render(context, mouseX, mouseY, delta);
+
+        // name field
+        this.nameInputField.render(context, mouseX, mouseY, delta);
 
         //title and tab title
         context.drawText(this.textRenderer, this.title, this.containerX + 8, this.containerY + 8, 0x404040, false);
@@ -334,10 +384,14 @@ public abstract class AbstractNPCScreen extends Screen {
         //big center NPC
         this.renderEntityPreview(context, mouseX, mouseY);
 
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            dialogueList.renderWidget(context, mouseX, mouseY, delta);
+        }
+
         //tab overlay
         switch (this.currentTab) {
             case SKINS -> this.renderSkinsTab(context, mouseX, mouseY);
-            case DIALOGUES -> this.renderDialoguesTab(context, mouseX, mouseY);
+            case DIALOGUES -> {}
             default -> {} // Other tabs do not need special rendering
         }
     }
@@ -350,23 +404,38 @@ public abstract class AbstractNPCScreen extends Screen {
             return;
         }
 
-        int contentX = containerX + 120, contentY = containerY + 50;
+        int viewLeft   = containerX + GRID_X;
+        int viewTop    = containerY + GRID_Y;
+        int viewRight  = viewLeft + GRID_W;
+        int viewBottom = viewTop + GRID_H;
+
+        int contentX = viewLeft;
+        int contentY = viewTop;
+
+        context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
 
         for (int i = 0; i < skinsToRender.size(); i++) {
             int col = i % SKIN_COLUMNS;
             int row = i / SKIN_COLUMNS;
 
-            int skinX = contentX + col * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
-            int skinY = contentY + row * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+            int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
+            int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - skinScrollOffset;
 
             int skinIndex = skinsToRender.get(i);
+
+            int cellBottom = skinY + SKIN_CELL_H;
+            int cellTop = skinY;
+            if (cellBottom < viewTop || cellTop > viewBottom) {
+                continue;
+            }
             renderVariantPreview(context, skinX, skinY, skinIndex, mouseX, mouseY);
         }
+        context.disableScissor();
     }
 
     private void renderVariantPreview(DrawContext context, int x, int y, int skinIndex, int mouseX, int mouseY) {
-        int width = SKIN_CELL_SIZE;
-        int height = SKIN_CELL_SIZE;
+        int width = SKIN_CELL_W;
+        int height = SKIN_CELL_H;
 
         boolean selected = (skinIndex == this.selectedSkinIndex);
         boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
@@ -387,65 +456,59 @@ public abstract class AbstractNPCScreen extends Screen {
         // small NPC preview inside cell
         NPCEntity preview = getPreviewNPC(skinIndex);
         int centerX = x + width / 2;
-        int centerY = y + height - 4;
+        int centerY = y + height - 6;
         renderEntity(context, centerX, centerY, ENTITY_PREVIEW_SIZE, preview, false);
-    }
-
-    //dialogue tab render
-    private void renderDialoguesTab(DrawContext context, int mouseX, int mouseY) {
-        int contentX = containerX + 120, contentY = containerY + 75;
-        int yPos = contentY - dialogueScrollOffset;
-
-        //scrolling area
-        context.enableScissor(contentX, contentY, contentX + 128, containerY + containerHeight - 55);
-        for (CheckboxWidget checkbox : this.dialogueCheckboxes.values()) {
-            checkbox.setX(contentX);
-            checkbox.setY(yPos);
-            checkbox.render(context, mouseX, mouseY, 0);
-            yPos += 15;
-        }
-        context.disableScissor();
     }
 
     // mouseclick
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
         if (this.currentTab == Tab.SKINS) {
-            int contentX = containerX + 120, contentY = containerY + 50;
+            int contentX = containerX + GRID_X;
+            int contentY = containerY + GRID_Y;
 
             for (int i = 0; i < skinsToRender.size(); i++) {
                 int col = i % SKIN_COLUMNS;
                 int row = i / SKIN_COLUMNS;
 
-                int skinX = contentX + col * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
-                int skinY = contentY + row * (SKIN_CELL_SIZE + SKIN_CELL_SPACING);
+                int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
+                int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - skinScrollOffset;
 
-                int width = SKIN_CELL_SIZE;
-                int height = SKIN_CELL_SIZE;
+                int width = SKIN_CELL_W;
+                int height = SKIN_CELL_H;
 
                 if (mouseX >= skinX && mouseX < skinX + width &&  mouseY >= skinY && mouseY < skinY + height) {
                     int newSkinIndex = skinsToRender.get(i);
                     this.selectedSkinIndex = newSkinIndex;
 
                     // update center preview immediately
-                    if (this.previewNpc != null) {
-                        this.previewNpc = getPreviewNPC(newSkinIndex);
-                    }
+                    this.previewNpc = previewNpcCache.computeIfAbsent(newSkinIndex, this::createPreviewNPC);
                     return true;
                 }
             }
         }
-        if (this.currentTab == Tab.DIALOGUES) {
-            for (CheckboxWidget checkbox : this.dialogueCheckboxes.values()) { if (checkbox.mouseClicked(mouseX, mouseY, button)) { return true; } }
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            if (dialogueList.mouseClicked(mouseX, mouseY, button)) return true;
         }
         return super.mouseClicked(mouseX, mouseY, button);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        if (this.currentTab == Tab.DIALOGUES) {
-            this.dialogueScrollOffset = (int)MathHelper.clamp(this.dialogueScrollOffset - verticalAmount * 10, 0, Math.max(0, this.dialogueCheckboxes.size() * 15 - 70));
+        // Skin scrolling
+        if (this.currentTab == Tab.SKINS) {
+            int totalRows = (int) Math.ceil((double) skinsToRender.size() / SKIN_COLUMNS);
+            int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
+
+            this.skinScrollOffset = (int) MathHelper.clamp(
+                    this.skinScrollOffset - verticalAmount * 10,
+                    0,
+                    Math.max(0, contentHeight - GRID_H)
+            );
             return true;
+        }
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            if (dialogueList.mouseScrolled(mouseX, mouseY, verticalAmount)) return true;
         }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
@@ -505,12 +568,11 @@ public abstract class AbstractNPCScreen extends Screen {
 
         int variant = (selectedSkinIndex == -1)  ? npc.getSkinManager().getBaseVariant() : selectedSkinIndex;
 
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variant));
         preview.setAiDisabled(true);
         preview.setSilent(true);
 
-        int px = containerX + 36;
-        int py = containerY + (containerHeight / 2) + 34;
+        int px = containerX + PREVIEW_X + PREVIEW_W / 2-10;
+        int py = containerY + PREVIEW_Y + PREVIEW_H - 10-18;
 
         float dx = (float)(mouseX - px);
         float dy = (float)(mouseY - py);

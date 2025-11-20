@@ -13,7 +13,6 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 import net.minecraft.client.MinecraftClient;
-import net.asian.civiliansmod.gui.CustomChatScreen;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -108,16 +107,6 @@ public record DialogueSyncPayload(int npcId, String info) implements CustomPaylo
                 CiviliansMod.LOGGER.error("[CiviliansMod] No dialogues available for NPC {}", npcId);
             }
 
-            MinecraftClient client = MinecraftClient.getInstance();
-            client.execute(() -> {
-                // sync again later
-                client.execute(() -> {
-                    if (client.currentScreen instanceof CustomChatScreen screen) {
-                        CiviliansMod.LOGGER.info("[CiviliansMod] Refreshing CustomChatScreen after dialogue sync for NPC " + npcId);
-                        screen.fullInit();
-                    }
-                });
-            });
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("[CiviliansMod] Failed to handle DialogueSyncPayload for NPC {}", npcId, e);
         }

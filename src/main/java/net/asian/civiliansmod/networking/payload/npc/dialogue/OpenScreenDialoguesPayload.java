@@ -5,7 +5,6 @@ import com.google.gson.Gson;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.gui.CustomChatScreen;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
