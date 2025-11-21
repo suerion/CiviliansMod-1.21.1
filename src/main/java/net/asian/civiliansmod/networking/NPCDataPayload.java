@@ -53,13 +53,10 @@ public record NPCDataPayload(
             player.getServer().execute(() -> {
                 npc.setCustomName(Text.literal(payload.name));
                 npc.setPaused(payload.paused);
-                npc.setFollowing(payload.following);
 
-                // Set Battle Buddy and assign owner if it's being turned on
-                if (payload.battleBuddy && npc.getOwner() == null) {
-                    npc.setOwner(player);
-                }
-                npc.setBattleBuddy(payload.battleBuddy);
+                // Set Battle Buddy, Follower and assign owner if it's being turned on
+                npc.setFollowing(payload.following, player);
+                npc.setBattleBuddy(payload.battleBuddy, player);
 
                 npc.setWanderRadius(payload.wanderRadius);
                 npc.setDialogueOrdered(payload.dialogueOrdered);

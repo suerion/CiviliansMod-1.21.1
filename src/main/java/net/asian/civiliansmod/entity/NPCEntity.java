@@ -2,10 +2,7 @@ package net.asian.civiliansmod.entity;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
-import net.asian.civiliansmod.entity.goal.CustomDoorGoal;
-import net.asian.civiliansmod.entity.goal.NPCAttackGoal;
-import net.asian.civiliansmod.entity.goal.NPCDefendOwnerGoal;
-import net.asian.civiliansmod.entity.goal.NPCFollowOwnerGoal;
+import net.asian.civiliansmod.entity.goal.*;
 import net.asian.civiliansmod.gui.CustomNPCScreen;
 import net.asian.civiliansmod.gui.DefaultNPCScreen;
 import net.asian.civiliansmod.gui.SlimNPCScreen;
@@ -77,8 +74,7 @@ public class NPCEntity extends PathAwareEntity {
     private static final TrackedData<Integer> DIALOGUE_INDEX = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     private float originalMaxHealth = 20.0f;
-    private static final ItemStack DEFAULT_BATTLE_WEAPON = new ItemStack(Items.IRON_SWORD);
-    private boolean gaveBattleSword = false;
+    private int weaponUpdateCooldown = 0;
     int updateDialoguesTicks = 0;
     private Set<UUID> sent;
     @Environment(EnvType.CLIENT)
@@ -130,28 +126,7 @@ public class NPCEntity extends PathAwareEntity {
         this.goalSelector.add(1, new NPCAttackGoal(this, 1.2D, true));
         this.goalSelector.add(2, new NPCFollowOwnerGoal(this, 1.0, 10.0f, 2.0f));
         this.goalSelector.add(3, new CustomDoorGoal(this));
-        this.goalSelector.add(4, new WanderAroundFarGoal(this, 0.7) {
-            @Override
-            public boolean canStart() {
-                return !(isPaused() || isFollowing() || isBattleBuddy()) && super.canStart();
-            }
-            @Override
-            public boolean shouldContinue() {
-                return canStart();
-            }
-            @Nullable
-            @Override
-            protected Vec3d getWanderTarget() {
-                BlockPos anchor = getWanderAnchor();
-                Random random = NPCEntity.this.getRandom();
-                double angle = random.nextFloat() * 2 * Math.PI;
-                double radius = getWanderRadius() * Math.sqrt(random.nextFloat());
-                double x = anchor.getX() + 0.5 + radius * Math.cos(angle);
-                double z = anchor.getZ() + 0.5 + radius * Math.sin(angle);
-                // FIX 3: Changed FuzzyTargeting.find to FuzzyTargeting.findTo
-                return FuzzyTargeting.findTo(this.mob, 10, 7, new Vec3d(x, this.mob.getY(), z));
-            }
-        });
+        this.goalSelector.add(4, new NPCWanderGoal(this, 0.7));
         this.goalSelector.add(5, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
         this.goalSelector.add(6, new LookAroundGoal(this));
         this.targetSelector.add(1, new NPCDefendOwnerGoal(this));
@@ -181,9 +156,9 @@ public class NPCEntity extends PathAwareEntity {
         // loadSKIN
         this.skinManager.readNbt(readView);
         this.setPaused(readView.getBoolean("IsPaused", false));
-        this.setFollowing(readView.getBoolean("IsFollowing", false));
+        this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);
-        this.setBattleBuddy(readView.getBoolean("IsBattleBuddy", false));
+        this.dataTracker.set(IS_BATTLE_BUDDY, readView.getBoolean("IsBattleBuddy", false));
         this.setWanderRadius(readView.getFloat("WanderRadius", 16.0f));
         this.setWanderAnchor(readView.read("WanderAnchor", BlockPos.CODEC).orElse(this.getBlockPos()));
         this.setTradePreset(readView.getString("TradePreset", "none"));
@@ -191,25 +166,93 @@ public class NPCEntity extends PathAwareEntity {
         this.setDialogueIndex(readView.getInt("DialogueIndex", 0));
     }
 
+    //tick for checking what level has owner to get better battle buddy :)
+    @Override
+    public void tick() {
+        super.tick();
+
+        // only server side
+        if (this.getWorld().isClient) return;
+
+        // Only check if NPC is battle buddy
+        if (!this.isBattleBuddy()) return;
+
+        // NPC must have owner
+        LivingEntity owner = this.getOwner();
+        if (!(owner instanceof PlayerEntity player)) return;
+
+        // cooldown before checking level again
+        if (weaponUpdateCooldown-- > 0) return;
+        weaponUpdateCooldown = 40; // update every 2 seconds
+
+        // get weapon from owner lvl
+        ItemStack newWeapon = weaponFromOwner(player);
+        ItemStack current = this.getMainHandStack();
+
+        // only upgrade
+        if (!ItemStack.areItemsEqual(current, newWeapon)) {
+            this.equipStack(EquipmentSlot.MAINHAND, newWeapon);
+        }
+    }
+
     public boolean isPaused() { return this.dataTracker.get(IS_PAUSED); }
     public void setPaused(boolean paused) {
         this.dataTracker.set(IS_PAUSED, paused);
+
+        if (paused) {
+            // stop following
+            this.setFollowing(false, null);
+
+            // stop battle buddy
+            this.setBattleBuddy(false, null);
+
+            // remove owner
+            this.setOwnerUuid(null);
+
+            // set anchor to current position
+            this.setWanderAnchor(this.getBlockPos());
+        }
     }
     public boolean isFollowing() { return this.dataTracker.get(IS_FOLLOWING); }
-    public void setFollowing(boolean following) { this.dataTracker.set(IS_FOLLOWING, following); }
+    public void setFollowing(boolean following, @Nullable PlayerEntity owner) {
+        if (this.isPaused() && following) {
+            return;
+        }
+
+        this.dataTracker.set(IS_FOLLOWING, following);
+
+        if (following && owner != null) {
+            this.setOwner(owner);
+        }
+    }
     public boolean isBattleBuddy() { return this.dataTracker.get(IS_BATTLE_BUDDY); }
-    public void setBattleBuddy(boolean battleBuddy) {
+    public void setBattleBuddy(boolean battleBuddy, @Nullable PlayerEntity owner) {
         this.dataTracker.set(IS_BATTLE_BUDDY, battleBuddy);
 
         if (battleBuddy) {
-            this.equipStack(EquipmentSlot.MAINHAND, DEFAULT_BATTLE_WEAPON.copy());
+            // give owner to battlebuddy
+            if (!this.isPaused() && this.getOwnerUuid().isEmpty() && owner != null) {
+                this.setOwner(owner);
+            }
+
+            //give battlebuddy weapon from experience level of the owner
+            if (!this.isPaused() && owner != null) {
+                ItemStack weapon = weaponFromOwner(owner);
+                this.equipStack(EquipmentSlot.MAINHAND, weapon);
+            }
+
         } else {
+            // delete owner and weapon if follow not activated
+            if (!this.isPaused() && !this.isFollowing()) {
+                this.setOwnerUuid(null);
+                this.setWanderAnchor(this.getBlockPos());
+            }
             this.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
         }
 
+        // health for battle buddy
         if (!this.getWorld().isClient) {
             var healthAttr = this.getAttributeInstance(EntityAttributes.MAX_HEALTH);
-
             if (healthAttr != null) {
                 if (battleBuddy) {
                     this.originalMaxHealth = this.getMaxHealth();
@@ -236,6 +279,26 @@ public class NPCEntity extends PathAwareEntity {
         } catch (IllegalArgumentException e) { return null; }
     }
     public void setOwner(PlayerEntity player) { this.setOwnerUuid(player.getUuid()); }
+    //give BattleBuddy weapon from experienceLevel of the owner
+    private ItemStack weaponFromOwner(PlayerEntity owner) {
+        int lvl = owner.experienceLevel;
+
+        if (lvl < 5) {
+            return new ItemStack(Items.WOODEN_SHOVEL);
+        } else if (lvl < 10) {
+            return new ItemStack(Items.WOODEN_SWORD);
+        } else if (lvl < 15) {
+            return new ItemStack(Items.GOLDEN_SWORD);
+        } else if (lvl < 25) {
+            return new ItemStack(Items.STONE_SWORD);
+        } else if (lvl < 40) {
+            return new ItemStack(Items.IRON_SWORD);
+        } else if (lvl < 75) {
+            return new ItemStack(Items.DIAMOND_SWORD);
+        } else {
+            return new ItemStack(Items.NETHERITE_SWORD);
+        }
+    }
     public float getWanderRadius() { return this.dataTracker.get(WANDER_RADIUS); }
     public void setWanderRadius(float radius) { this.dataTracker.set(WANDER_RADIUS, MathHelper.clamp(radius, 4.0f, 64.0f)); }
     public BlockPos getWanderAnchor() { return this.dataTracker.get(WANDER_ANCHOR); }
@@ -249,6 +312,16 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     protected ActionResult interactMob(PlayerEntity player, Hand hand) {
+
+        // Wenn Battle Buddy aktiv und Owner existiert
+        if (this.isBattleBuddy() && this.getOwner() != null) {
+            // nur Owner darf interagieren
+            if (!player.getUuid().equals(this.getOwner().getUuid())) {
+                player.sendMessage(Text.literal("§cThe owner of this NPC is  "
+                        + this.getOwner().getName().getString()), true);
+                return ActionResult.FAIL;
+            }
+        }
         if (this.getWorld().isClient) {
             if (hand == Hand.MAIN_HAND && player.isSneaking()) {
                 if (this.dialoguesReceived) {

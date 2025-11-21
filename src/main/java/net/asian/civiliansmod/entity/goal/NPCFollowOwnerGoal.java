@@ -37,8 +37,12 @@ public class NPCFollowOwnerGoal extends Goal {
 
     @Override
     public boolean canStart() {
-        // Only follow if Battle Buddy is active and the NPC is not paused.
-        if (!this.npc.isBattleBuddy() || this.npc.isPaused()) {
+        // Only follow if Battle Buddy or follow is active and the NPC is not paused.
+        if (!(this.npc.isFollowing() || this.npc.isBattleBuddy())) {
+            return false;
+        }
+
+        if (this.npc.isPaused()) {
             return false;
         }
 
@@ -53,8 +57,7 @@ public class NPCFollowOwnerGoal extends Goal {
 
     @Override
     public boolean shouldContinue() {
-        // Stop if navigation is finished, no longer a battle buddy, or too close
-        return !this.navigation.isIdle() && this.npc.isBattleBuddy() && !this.npc.isPaused() && !(this.npc.squaredDistanceTo(this.owner) <= (double)(this.maxDistance * this.maxDistance));
+        return (this.npc.isFollowing() || this.npc.isBattleBuddy()) && !this.npc.isPaused();
     }
 
     @Override
