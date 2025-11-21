@@ -109,6 +109,7 @@ public abstract class AbstractNPCScreen extends Screen {
     //AI state
     private boolean battleBuddyState, stayState, followState, dialogueOrderedState;
     private float wanderRadiusState;
+    private boolean previousStay, previousFollow, previousBB;
 
     //Trade State
     private String tradePresetState;
@@ -152,13 +153,26 @@ public abstract class AbstractNPCScreen extends Screen {
     }
 
     private void updateWanderAnchorCheck() {
-        if (!stayState && !followState && !battleBuddyState) {
+        boolean nowWander = !stayState && !followState && !battleBuddyState;
+        boolean previouslyNotWander = previousStay || previousFollow || previousBB;
+
+        if (nowWander && previouslyNotWander) {
             npc.setWanderAnchor(npc.getBlockPos());
         }
+
+        // Update old state
+        previousStay = stayState;
+        previousFollow = followState;
+        previousBB = battleBuddyState;
     }
 
     @Override
     protected void init() {
+        //safe old states
+        this.previousStay = this.stayState;
+        this.previousFollow = this.followState;
+        this.previousBB = this.battleBuddyState;
+
         this.selectedSkinIndex = npc.getSkinManager().getBaseVariant();
         previewNpcCache.clear();
         super.init();
@@ -392,20 +406,19 @@ public abstract class AbstractNPCScreen extends Screen {
 
                 //wanderslider only if no stay, no follow, no battlebuddy
                 if (!this.stayState && !this.followState && !this.battleBuddyState) {
-                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) this.wanderRadiusState),(this.wanderRadiusState - 4.0) / 60.0) {
+                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) wanderRadiusState),(wanderRadiusState - 4f) / 60f) {
                         @Override
                         protected void updateMessage() {
                             //only current mapped value
-                            setMessage(Text.literal("Wander: " + (int) getValue()));
+                            setMessage(Text.literal("Wander: " + (int) getMappedValue()));
                         }
 
                         @Override
                         protected void applyValue() {
-                            //store mapped wander radius
-                            wanderRadiusState = (float) getValue();
+                            wanderRadiusState = (float) getMappedValue();
                         }
 
-                        private double getValue() {
+                        private double getMappedValue() {
                             return 4.0 + this.value * 60.0;
                         }
                     };

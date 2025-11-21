@@ -230,24 +230,24 @@ public class NPCEntity extends PathAwareEntity {
         this.dataTracker.set(IS_BATTLE_BUDDY, battleBuddy);
 
         if (battleBuddy) {
-            // give owner to battlebuddy
-            if (!this.isPaused() && this.getOwnerUuid().isEmpty() && owner != null) {
-                this.setOwner(owner);
+            //battlebudy needs follow
+            if (!this.isFollowing()) {
+                this.setFollowing(true, owner);
             }
 
-            //give battlebuddy weapon from experience level of the owner
-            if (!this.isPaused() && owner != null) {
+            if (owner != null) {
+                this.setOwner(owner);
+                // give weapon allways
                 ItemStack weapon = weaponFromOwner(owner);
                 this.equipStack(EquipmentSlot.MAINHAND, weapon);
             }
-
         } else {
-            // delete owner and weapon if follow not activated
-            if (!this.isPaused() && !this.isFollowing()) {
-                this.setOwnerUuid(null);
-                this.setWanderAnchor(this.getBlockPos());
-            }
+            //battlebuddy off, deactivate weapon
             this.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+            //if follow also disabled, delete owner
+            if (!this.isFollowing()) {
+                this.setOwnerUuid(null);
+            }
         }
 
         // health for battle buddy
