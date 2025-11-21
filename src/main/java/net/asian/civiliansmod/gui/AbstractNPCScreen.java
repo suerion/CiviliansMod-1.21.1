@@ -151,6 +151,12 @@ public abstract class AbstractNPCScreen extends Screen {
         return false;
     }
 
+    private void updateWanderAnchorCheck() {
+        if (!stayState && !followState && !battleBuddyState) {
+            npc.setWanderAnchor(npc.getBlockPos());
+        }
+    }
+
     @Override
     protected void init() {
         this.selectedSkinIndex = npc.getSkinManager().getBaseVariant();
@@ -322,6 +328,7 @@ public abstract class AbstractNPCScreen extends Screen {
                         }
                         battleBuddyCheckbox[0].active = false;
                     }
+                    updateWanderAnchorCheck();
                     //if stay and follow disable, wander slider should activated
                     this.clearAndInit();
                     }
@@ -347,7 +354,7 @@ public abstract class AbstractNPCScreen extends Screen {
                         // Stay off , if follow activated, battlebuddy could activated
                         battleBuddyCheckbox[0].active = this.followState;
                     }
-
+                    updateWanderAnchorCheck();
                     this.clearAndInit();
                 });
 
@@ -375,6 +382,7 @@ public abstract class AbstractNPCScreen extends Screen {
                         // follow should be follow
                         stayCheckbox[0].active = !this.followState;
                     }
+                    updateWanderAnchorCheck();
                     this.clearAndInit();
                 });
 
@@ -688,6 +696,8 @@ public abstract class AbstractNPCScreen extends Screen {
     private void saveAndClose() {
         ClientPlayNetworking.send(new NPCDataPayload(npc.getUuid(), nameInputField.getText(), stayState, followState, battleBuddyState, wanderRadiusState, dialogueOrderedState, tradePresetState));
         SkinIdentifier selected = getSelectedSkin();
+
+        updateWanderAnchorCheck();
 
         if (selectedSkinIndex == -1) {
             this.close();

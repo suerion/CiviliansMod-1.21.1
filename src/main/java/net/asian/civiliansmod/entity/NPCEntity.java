@@ -21,6 +21,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.FuzzyTargeting;
 import net.minecraft.entity.ai.goal.*;
@@ -39,6 +40,7 @@ import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.listener.ClientPlayPacketListener;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.storage.ReadView;
@@ -75,6 +77,8 @@ public class NPCEntity extends PathAwareEntity {
     private static final TrackedData<Integer> DIALOGUE_INDEX = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     private float originalMaxHealth = 20.0f;
+    private static final ItemStack DEFAULT_BATTLE_WEAPON = new ItemStack(Items.IRON_SWORD);
+    private boolean gaveBattleSword = false;
     int updateDialoguesTicks = 0;
     private Set<UUID> sent;
     @Environment(EnvType.CLIENT)
@@ -99,18 +103,6 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     protected void initDataTracker(DataTracker.Builder builder) {
         super.initDataTracker(builder);
-
-        /* Fix Order Issues with older NPC's
-        builder.add(IS_PAUSED, false);
-        builder.add(IS_FOLLOWING, false);
-        builder.add(IS_BATTLE_BUDDY, false);
-        builder.add(OWNER_UUID, Optional.empty());
-        builder.add(WANDER_RADIUS, 16.0f);
-        builder.add(WANDER_ANCHOR, this.getBlockPos());
-        builder.add(TRADE_PRESET, "none");
-        builder.add(DIALOGUE_ORDERED, false);
-        builder.add(DIALOGUE_INDEX, 0);
-        */
 
         builder.add(IS_PAUSED, false);
         builder.add(IS_FOLLOWING, false);
@@ -139,7 +131,14 @@ public class NPCEntity extends PathAwareEntity {
         this.goalSelector.add(2, new NPCFollowOwnerGoal(this, 1.0, 10.0f, 2.0f));
         this.goalSelector.add(3, new CustomDoorGoal(this));
         this.goalSelector.add(4, new WanderAroundFarGoal(this, 0.7) {
-            @Override public boolean canStart() { return !(isPaused() || isFollowing() || isBattleBuddy()) && super.canStart(); }
+            @Override
+            public boolean canStart() {
+                return !(isPaused() || isFollowing() || isBattleBuddy()) && super.canStart();
+            }
+            @Override
+            public boolean shouldContinue() {
+                return canStart();
+            }
             @Nullable
             @Override
             protected Vec3d getWanderTarget() {
@@ -194,7 +193,6 @@ public class NPCEntity extends PathAwareEntity {
 
     public boolean isPaused() { return this.dataTracker.get(IS_PAUSED); }
     public void setPaused(boolean paused) {
-        if (paused) { this.setWanderAnchor(this.getBlockPos()); }
         this.dataTracker.set(IS_PAUSED, paused);
     }
     public boolean isFollowing() { return this.dataTracker.get(IS_FOLLOWING); }
@@ -202,16 +200,22 @@ public class NPCEntity extends PathAwareEntity {
     public boolean isBattleBuddy() { return this.dataTracker.get(IS_BATTLE_BUDDY); }
     public void setBattleBuddy(boolean battleBuddy) {
         this.dataTracker.set(IS_BATTLE_BUDDY, battleBuddy);
+
+        if (battleBuddy) {
+            this.equipStack(EquipmentSlot.MAINHAND, DEFAULT_BATTLE_WEAPON.copy());
+        } else {
+            this.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
+        }
+
         if (!this.getWorld().isClient) {
             var healthAttr = this.getAttributeInstance(EntityAttributes.MAX_HEALTH);
+
             if (healthAttr != null) {
                 if (battleBuddy) {
-                    // FIX 4: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
                     this.originalMaxHealth = this.getMaxHealth();
                     healthAttr.setBaseValue(40.0D);
                     this.heal(40.0F);
                 } else {
-                    // FIX 5: Changed GENERIC_MAX_HEALTH to MAX_HEALTH
                     healthAttr.setBaseValue(this.originalMaxHealth);
                     if (this.getHealth() > this.originalMaxHealth) {
                         this.setHealth(this.originalMaxHealth);
@@ -220,6 +224,7 @@ public class NPCEntity extends PathAwareEntity {
             }
         }
     }
+
     public Optional<UUID> getOwnerUuid() { return this.dataTracker.get(OWNER_UUID); }
     public void setOwnerUuid(@Nullable UUID uuid) { this.dataTracker.set(OWNER_UUID, Optional.ofNullable(uuid)); }
 
