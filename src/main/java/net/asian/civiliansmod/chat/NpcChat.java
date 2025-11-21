@@ -154,24 +154,30 @@ public class NpcChat {
     }
 
     public enum ChatReason {
-        HURT("hurt"),
-        INTERACT("interact"),
-        IDLE("idle"),
-        GREET("greet"),
-        ATTACK("attack"),
-        RANDOM("random"),
-        FOLLOW("follow"),
-        TRADE("trade");
+        HURT("hurt", true),
+        INTERACT("interact", true),
+        IDLE("idle", false),
+        GREET("greet", false),
+        ATTACK("attack", false),
+        RANDOM("random", false),
+        FOLLOW("follow", false),
+        TRADE("trade", false);
 
 
         final String name;
+        private final boolean active;
 
-        ChatReason(String name) {
+        ChatReason(String name, boolean active) {
             this.name = name;
+            this.active = active;
         }
 
         public String getName() {
             return this.name;
+        }
+
+        public boolean isActive() {
+            return this.active;
         }
 
         public static ChatReason fromName(String name) {

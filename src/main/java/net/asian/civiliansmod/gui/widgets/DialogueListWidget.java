@@ -46,7 +46,8 @@ public class DialogueListWidget{
         for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
 
             List<String> list = map.getOrDefault(reason, new ArrayList<>());
-            DialogueCategoryWidget category = new DialogueCategoryWidget(npc, x + 4, 0, width - 12, reason, list, this::recalculate);
+            int barWidth = 7;
+            DialogueCategoryWidget category = new DialogueCategoryWidget(npc, x + 4, 0, width - barWidth - 14, reason, list, this::recalculate);
             categories.add(category);
         }
         recalculate();
@@ -99,21 +100,27 @@ public class DialogueListWidget{
 
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 
-        context.enableScissor(x, y, x + width, y + height);
+        int barWidth = 7;
+        int listX = x + barWidth + 8;
+
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(0, 0);
+        context.enableScissor(listX, y, x + width, y + height);
 
         int offsetY = y - (int) scrollY;
 
         for (DialogueCategoryWidget cat : categories) {
 
-            cat.setX(x + 4);
-            cat.setY(offsetY);
+            cat.setX(listX);
+            cat.setY(offsetY + 1);
 
             cat.render(context, mouseX, mouseY, delta);
 
             offsetY += cat.getHeight() + 4;
-        }
 
+        }
         context.disableScissor();
+        context.getMatrices().popMatrix();
 
         renderScrollbar(context);
     }
@@ -122,8 +129,8 @@ public class DialogueListWidget{
 
         if (maxScrollY <= 0) return;
 
-        int barWidth = 6;
-        int barX = x + width - barWidth - 2;
+        int barWidth = 7;
+        int barX = x + 2;
 
         context.fill(barX, y, barX + barWidth, y + height, 0x22000000);
 

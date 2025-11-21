@@ -1,11 +1,10 @@
 package net.asian.civiliansmod.gui.widgets;
 
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.gui.AbstractNPCScreen;
 import net.asian.civiliansmod.gui.EditDialogueScreen;
-import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
 import net.asian.civiliansmod.gui.ConfirmScreen;
-import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.RemoveDialoguePayload;
 
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -31,11 +30,10 @@ public class DialogueEntryWidget extends ClickableWidget {
     private final Runnable refreshScreen;
 
     private final CheckboxWidget checkbox;
-
     private boolean selectionMode = false;
 
-    public DialogueEntryWidget(NPCEntity npc, int x, int y, int width, int height, NpcChat.ChatReason category, String dialogue, int index,Runnable refreshScreen) {
-        super(x, y, width, height, Text.literal(dialogue));
+    public DialogueEntryWidget(NPCEntity npc, int x, int y, int width, int height, NpcChat.ChatReason category, String dialogue, int index, Runnable refreshScreen) {
+        super(x, y, width, height, Text.empty());
         this.npc = npc;
         this.category = category;
         this.dialogue = dialogue;
@@ -47,10 +45,10 @@ public class DialogueEntryWidget extends ClickableWidget {
 
     private void openDeleteConfirm() {
         MinecraftClient client = MinecraftClient.getInstance();
-
         MultilineText text = MultilineText.create(client.textRenderer, Text.literal("Delete Dialogue?"), 200);
 
-        client.setScreen(new ConfirmScreen(client.currentScreen, yes -> {
+        client.setScreen(new ConfirmScreen(client.currentScreen,
+                yes -> {
                     String lang = client.getLanguageManager().getLanguage();
 
                     npc.getChatManager()
@@ -87,23 +85,30 @@ public class DialogueEntryWidget extends ClickableWidget {
 
         var renderer = MinecraftClient.getInstance().textRenderer;
 
-        int textWidth = getWidth() - 28;
-        String trimmed = renderer.trimToWidth(dialogue, textWidth);
-        if (renderer.getWidth(dialogue) > textWidth) {
+        int deletePadding = selectionMode ? 0 : (DELETE_SIZE + 4);
+        int availableWidth = getWidth() - deletePadding - 6;
+
+        if (availableWidth < 20)
+            availableWidth = 20;
+
+        String trimmed = renderer.trimToWidth(dialogue, availableWidth);
+
+        if (renderer.getWidth(dialogue) > availableWidth)
             trimmed += "...";
-        }
 
-        int textY = getY() + (height - renderer.fontHeight) / 2;
-        context.drawTextWithShadow(renderer, trimmed, getX() + 16, textY, 0xFFFFFF);
+        int textY = getY() + (getHeight() - renderer.fontHeight) / 2;
 
-        checkbox.setX(getX() + 2);
-        checkbox.setY(getY() + (height - 10) / 2);
+        context.drawTextWithShadow(renderer, trimmed, getX() + 4, textY, 0xFFFFFFFF);
 
         if (selectionMode) {
+
+            checkbox.setX(getX() + 2);
+            checkbox.setY(getY() + (getHeight() - 10) / 2);
             checkbox.renderWidget(context, mouseX, mouseY, delta);
         } else {
-            int deleteX = getX() + width - DELETE_SIZE - 2;
-            int deleteY = getY() + (height - DELETE_SIZE) / 2;
+
+            int deleteX = getX() + getWidth() - DELETE_SIZE - 2;
+            int deleteY = getY() + (getHeight() - DELETE_SIZE) / 2;
 
             boolean hoveredDelete =
                     mouseX >= deleteX && mouseX < deleteX + DELETE_SIZE &&
@@ -111,7 +116,12 @@ public class DialogueEntryWidget extends ClickableWidget {
 
             Identifier icon = hoveredDelete ? DELETE_BT_HOVER : DELETE_BT;
 
-            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, deleteX, deleteY, 0, 0, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, -1);
+            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon,
+                    deleteX, deleteY,
+                    0, 0,
+                    DELETE_SIZE, DELETE_SIZE,
+                    DELETE_SIZE, DELETE_SIZE,
+                    DELETE_SIZE, DELETE_SIZE, -1);
         }
     }
 
@@ -127,24 +137,22 @@ public class DialogueEntryWidget extends ClickableWidget {
         }
 
         int deleteX = getX() + getWidth() - DELETE_SIZE - 2;
-        int deleteY = getY() + (height - DELETE_SIZE) / 2;
+        int deleteY = getY() + (getHeight() - DELETE_SIZE) / 2;
 
-        boolean deleteHit =
-                mouseX >= deleteX && mouseX < deleteX + DELETE_SIZE &&
-                        mouseY >= deleteY && mouseY < deleteY + DELETE_SIZE;
+        if (mouseX >= deleteX && mouseX < deleteX + DELETE_SIZE &&
+                mouseY >= deleteY && mouseY < deleteY + DELETE_SIZE) {
 
-        if (deleteHit) {
             openDeleteConfirm();
             return true;
         }
 
         if (isMouseOver(mouseX, mouseY)) {
-
             var current = MinecraftClient.getInstance().currentScreen;
 
-
             if (current instanceof AbstractNPCScreen parent) {
-                MinecraftClient.getInstance().setScreen(new EditDialogueScreen(npc, dialogue, category, index, parent));
+                MinecraftClient.getInstance().setScreen(
+                        new EditDialogueScreen(npc, dialogue, category, index, parent)
+                );
             }
             return true;
         }

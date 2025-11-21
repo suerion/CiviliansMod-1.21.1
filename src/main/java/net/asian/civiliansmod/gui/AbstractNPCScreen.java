@@ -50,8 +50,8 @@ public abstract class AbstractNPCScreen extends Screen {
     private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
 
     private static final int NAME_X = 10;
-    private static final int NAME_Y = 38;
-    private static final int NAME_W = 90;
+    private static final int NAME_Y = PREVIEW_H + 10;
+    private static final int NAME_W = 54;
     private static final int NAME_H = 18;
 
     // constants for small preview layout
@@ -104,6 +104,7 @@ public abstract class AbstractNPCScreen extends Screen {
     private int originalVariantIndex = 0;
 
     private DialogueListWidget dialogueList;
+    private boolean selectionMode = false;
 
     //AI state
     private boolean battleBuddyState, stayState, followState, dialogueOrderedState;
@@ -162,10 +163,10 @@ public abstract class AbstractNPCScreen extends Screen {
         this.containerX = (this.width - this.containerWidth) / 2;
         this.containerY = (this.height - this.containerHeight) / 2;
 
-        this.DIALOG_X = this.containerX + PREVIEW_X + PREVIEW_W + 30;
-        this.DIALOG_Y = this.containerY + 40;
-        this.DIALOG_W = 140;
-        this.DIALOG_H = this.containerHeight - 75;
+        this.DIALOG_X = this.containerX + 62;
+        this.DIALOG_Y = this.containerY + 38;
+        this.DIALOG_W = 213;
+        this.DIALOG_H = 114;
 
         // center preview NPC
         if (this.client != null && this.client.world != null && this.previewNpc == null) {
@@ -212,6 +213,57 @@ public abstract class AbstractNPCScreen extends Screen {
         }
     }
 
+    private void toggleSelection() {
+        selectionMode = !selectionMode;
+        if (dialogueList != null) {
+            dialogueList.setSelectionMode(selectionMode);
+        }
+    }
+
+    private void deleteSelected() {
+        if (dialogueList == null) return;
+
+        List<String> selected = dialogueList.getSelectedDialogues();
+        if (selected.isEmpty()) return;
+
+        String lang = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+
+        for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+            List<String> all = dialogueList.getAllDialoguesFor(reason);
+            List<String> toRemove = selected.stream()
+                    .filter(all::contains)
+                    .toList();
+
+            if (!toRemove.isEmpty()) {
+                ClientPlayNetworking.send(new MassRemoveDialoguePayload(
+                        npc.getUuid(), lang, reason, toRemove
+                ));
+            }
+        }
+
+        dialogueList.deleteLocal(selected);
+        dialogueList.reloadFromNPC();
+    }
+
+    private void deleteAll() {
+        if (dialogueList == null) return;
+
+        String lang = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+
+        for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+
+            if (!reason.isActive()) continue;
+            List<String> list = dialogueList.getAllDialoguesFor(reason);
+            if (!list.isEmpty()) {
+                ClientPlayNetworking.send(new MassRemoveDialoguePayload(npc.getUuid(), lang, reason, list
+                ));
+            }
+        }
+
+        dialogueList.deleteAllLocal();
+        dialogueList.reloadFromNPC();
+    }
+
     @Override
     public void tick() {
         super.tick();
@@ -244,7 +296,7 @@ public abstract class AbstractNPCScreen extends Screen {
             }
             case AI -> {
 
-                int x = contentX;
+                int x = containerX + BTN_SKIN_X;
                 int y = contentY;
 
                 final CheckboxWidget[] stayCheckbox = new CheckboxWidget[1];

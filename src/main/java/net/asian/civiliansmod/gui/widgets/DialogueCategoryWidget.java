@@ -133,7 +133,7 @@ public class DialogueCategoryWidget extends ClickableWidget {
                         ? (headerHovered ? ARROW_OPEN_HOVER : ARROW_OPEN)
                         : (headerHovered ? ARROW_CLOSED_HOVER : ARROW_CLOSED);
 
-        int arrowY = getY() + (REASON_HEIGHT - 8) / 2;
+        int arrowY = getY() + (REASON_HEIGHT - 8) / 2 - 1;
         context.drawTexture(RenderPipelines.GUI_TEXTURED, arrow, getX() + 6, arrowY, 0, 0, 8, 8, 8, 8, 8, 8, -1);
 
         // Title
@@ -153,12 +153,12 @@ public class DialogueCategoryWidget extends ClickableWidget {
         if (!open) return;
 
         int totalSpacing = COLUMN_SPACING;
-        int usableWidth = getWidth() - totalSpacing - 4;
+        int usableWidth = getWidth() - totalSpacing - 5;
 
         int colWidth = usableWidth / 2;
 
         // ENTRIES
-        int startY = getY() + REASON_HEIGHT + 3;
+        int startY = this.getY() + REASON_HEIGHT + 3;
 
         int i = 0;
         for (DialogueEntryWidget entry : entries) {
@@ -172,7 +172,7 @@ public class DialogueCategoryWidget extends ClickableWidget {
             entry.setHeight(ENTRY_HEIGHT);
             entry.setX(ex);
             entry.setY(ey);
-            entry.renderWidget(context, mouseX, mouseY, delta);
+            entry.render(context, mouseX, mouseY, delta);
             i++;
         }
 
@@ -187,7 +187,7 @@ public class DialogueCategoryWidget extends ClickableWidget {
         addButton.setWidth(colWidth);
         addButton.setX(ax);
         addButton.setY(ay);
-        addButton.renderWidget(context, mouseX, mouseY, delta);
+        addButton.render(context, mouseX, mouseY, delta);
     }
 
     @Override
