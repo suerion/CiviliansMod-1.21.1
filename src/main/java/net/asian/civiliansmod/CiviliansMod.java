@@ -31,6 +31,7 @@ public class CiviliansMod implements ModInitializer {
     //debug fields only for debug options in dev
     public static final boolean DEBUG_TEXTURE = false;   // texture debug to logger
     public static final boolean DEBUG_AI = false;       // AI-Tab debug to logger
+    public static final boolean DEBUG_AI_WANDER = false;       // AI wandering debug to logger
     public static final boolean DEBUG_NETWORK = false;  // networking debug to logger
     public static final boolean DEBUG_RENDER = false;    // renderer debug to logger
     public static final boolean DEBUG_GUI = false; // gui debug to logger
