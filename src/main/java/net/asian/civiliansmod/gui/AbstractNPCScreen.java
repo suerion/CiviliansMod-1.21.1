@@ -43,15 +43,15 @@ public abstract class AbstractNPCScreen extends Screen {
     private static final int TAB_SPACING = 4;
 
 
-    private static final int PREVIEW_X = 16;   // linker Rand der roten Box
-    private static final int PREVIEW_Y = 30;   // oberer Rand der roten Box
-    private static final int PREVIEW_W = 64;   // Breite der roten Box
-    private static final int PREVIEW_H = 110;  // Höhe der roten Box
+    private static final int PREVIEW_X = 16;
+    private static final int PREVIEW_Y = 47;
+    private static final int PREVIEW_W = 64;
+    private static final int PREVIEW_H = 110;
     private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
 
     private static final int NAME_X = 10;
-    private static final int NAME_Y = PREVIEW_H + 10;
-    private static final int NAME_W = 54;
+    private static final int NAME_Y = PREVIEW_Y - 12;
+    private static final int NAME_W = 55;
     private static final int NAME_H = 18;
 
     // constants for small preview layout
@@ -183,9 +183,9 @@ public abstract class AbstractNPCScreen extends Screen {
         this.containerX = (this.width - this.containerWidth) / 2;
         this.containerY = (this.height - this.containerHeight) / 2;
 
-        this.DIALOG_X = this.containerX + 62;
+        this.DIALOG_X = this.containerX + 69;
         this.DIALOG_Y = this.containerY + 38;
-        this.DIALOG_W = 213;
+        this.DIALOG_W = 208;
         this.DIALOG_H = 114;
 
         // center preview NPC

@@ -47,7 +47,7 @@ public class DialogueListWidget{
 
             List<String> list = map.getOrDefault(reason, new ArrayList<>());
             int barWidth = 7;
-            DialogueCategoryWidget category = new DialogueCategoryWidget(npc, x + 4, 0, width - barWidth - 14, reason, list, this::recalculate);
+            DialogueCategoryWidget category = new DialogueCategoryWidget(npc, x + 4, 0, width - barWidth - 17, reason, list, this::recalculate);
             categories.add(category);
         }
         recalculate();

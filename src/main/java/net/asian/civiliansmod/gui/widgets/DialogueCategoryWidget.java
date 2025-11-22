@@ -34,7 +34,7 @@ public class DialogueCategoryWidget extends ClickableWidget {
     // Layout constants
     private static final int REASON_HEIGHT = 18;
     private static final int ENTRY_HEIGHT = 14;
-    private static final int COLUMN_WIDTH = 115;
+    private static final int COLUMN_WIDTH = 110;
     private static final int COLUMN_SPACING = 8;
 
     // Arrow icons
@@ -155,7 +155,7 @@ public class DialogueCategoryWidget extends ClickableWidget {
         int totalSpacing = COLUMN_SPACING;
         int usableWidth = getWidth() - totalSpacing - 5;
 
-        int colWidth = usableWidth / 2;
+        int colWidth = (usableWidth / 2) + 1;
 
         // ENTRIES
         int startY = this.getY() + REASON_HEIGHT + 3;
