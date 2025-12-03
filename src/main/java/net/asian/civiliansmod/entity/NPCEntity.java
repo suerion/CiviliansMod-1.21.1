@@ -22,15 +22,18 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.FuzzyTargeting;
 import net.minecraft.entity.ai.goal.*;
+import net.minecraft.entity.ai.goal.SwimGoal;
 import net.minecraft.entity.ai.pathing.LandPathNodeMaker;
 import net.minecraft.entity.attribute.DefaultAttributeContainer;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.data.DataTracker;
 import net.minecraft.entity.data.TrackedData;
 import net.minecraft.entity.data.TrackedDataHandler;
 import net.minecraft.entity.data.TrackedDataHandlerRegistry;
 import net.minecraft.entity.mob.PathAwareEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.codec.PacketCodecs;
@@ -40,6 +43,7 @@ import net.minecraft.network.packet.s2c.play.EntitySpawnS2CPacket;
 import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.network.EntityTrackerEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.storage.ReadView;
 import net.minecraft.storage.WriteView;
 import net.minecraft.text.Text;
@@ -53,11 +57,10 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.World;
 
 import org.jetbrains.annotations.Nullable;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+
+import java.util.*;
+
+import static net.asian.civiliansmod.CiviliansMod.*;
 
 
 public class NPCEntity extends PathAwareEntity {
@@ -74,7 +77,20 @@ public class NPCEntity extends PathAwareEntity {
     private static final TrackedData<Integer> DIALOGUE_INDEX = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     private float originalMaxHealth = 20.0f;
-    private int weaponUpdateCooldown = 0;
+    // Combat system
+    public enum CombatState { IDLE, ALERT, ATTACK }
+    // Track current combat state
+    private CombatState combatState = CombatState.IDLE;
+    private final Map<LivingEntity, Integer> ownerHitCount = new HashMap<>();
+    private final Map<LivingEntity, Integer> ownerHitExpire = new HashMap<>();
+    // Used to remember when NPC was damaged
+    private int lastDamagedTick = -200;
+    // Used to detect owner damage (alert state)
+    private int lastOwnerHurtTick = -200;
+    private boolean recentlyDamaged = false;
+    private int recentlyDamagedTicks = 0;
+
+
     int updateDialoguesTicks = 0;
     private Set<UUID> sent;
     @Environment(EnvType.CLIENT)
@@ -121,14 +137,79 @@ public class NPCEntity extends PathAwareEntity {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+
+        // Combat state tick
+        this.tickCombat();
+    }
+
+    //adding COMBAT SYSTEM!!!
+    private void tickCombat() {
+
+        // if owner hits only once and no more attacks in 5 second, forget...
+        ownerHitExpire.entrySet().removeIf(e -> this.age > e.getValue());
+        ownerHitCount.entrySet().removeIf(e -> !ownerHitExpire.containsKey(e.getKey()));
+
+        // if no owner or not battle buddy → skip combat
+        if (!this.isBattleBuddy()) {
+            this.combatState = CombatState.IDLE;
+            return;
+        }
+
+        LivingEntity owner = this.getOwner();
+        if (owner == null) {
+            this.combatState = CombatState.IDLE;
+            return;
+        }
+
+        LivingEntity currentTarget = this.getTarget();
+
+        // if the npc has an target, attack state
+        if (currentTarget != null && currentTarget.isAlive()) {
+            this.combatState = CombatState.ATTACK;
+            return;
+        }
+
+        // if npc was hurt, alert state
+        if (this.age - lastDamagedTick < 100) {
+            this.combatState = CombatState.ALERT;
+            return;
+        }
+
+        // if owner was hurt, alert in 5 seconds again, ATTACK?
+        if (owner.getAttacker() != null && owner.getAttacker().isAlive()) {
+            LivingEntity ownerAttacker = owner.getAttacker();
+
+            // if mob attacks owner, ATTACK
+            if (!(ownerAttacker instanceof PlayerEntity)) {
+                this.setTarget(ownerAttacker);
+                this.combatState = CombatState.ATTACK;
+                return;
+            }
+
+            // IF PLAYER ATTACKS OWNER,
+            // get 2 hit target from AttackEntityCallback
+            this.combatState = CombatState.ALERT;
+            return;
+        }
+
+        // idle if not alert
+        this.combatState = CombatState.IDLE;
+    }
+
+    @Override
     protected void initGoals() {
         super.initGoals();
-        this.goalSelector.add(1, new NPCAttackGoal(this, 1.2D, true));
-        this.goalSelector.add(2, new NPCFollowOwnerGoal(this, 1.0, 10.0f, 2.0f));
-        this.goalSelector.add(3, new CustomDoorGoal(this));
-        this.goalSelector.add(4, new NPCWanderGoal(this, 0.7));
-        this.goalSelector.add(5, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
-        this.goalSelector.add(6, new LookAroundGoal(this));
+        //avoid drowning
+        this.goalSelector.add(0, new SwimGoal(this));
+        this.goalSelector.add(1, new NPCLeaveWaterGoal(this, 1.2D));
+        this.goalSelector.add(2, new NPCAttackGoal(this, 1.2D, true));
+        this.goalSelector.add(3, new NPCFollowOwnerGoal(this, 1.0, 10.0f, 2.0f));
+        this.goalSelector.add(4, new CustomDoorGoal(this));
+        this.goalSelector.add(5, new NPCWanderGoal(this, 0.7));
+        this.goalSelector.add(6, new LookAtEntityGoal(this, PlayerEntity.class, 8.0F));
+        this.goalSelector.add(7, new LookAroundGoal(this));
         this.targetSelector.add(1, new NPCDefendOwnerGoal(this));
         this.targetSelector.add(2, new RevengeGoal(this).setGroupRevenge());
     }
@@ -166,35 +247,6 @@ public class NPCEntity extends PathAwareEntity {
         this.setDialogueIndex(readView.getInt("DialogueIndex", 0));
     }
 
-    //tick for checking what level has owner to get better battle buddy :)
-    @Override
-    public void tick() {
-        super.tick();
-
-        // only server side
-        if (this.getWorld().isClient) return;
-
-        // Only check if NPC is battle buddy
-        if (!this.isBattleBuddy()) return;
-
-        // NPC must have owner
-        LivingEntity owner = this.getOwner();
-        if (!(owner instanceof PlayerEntity player)) return;
-
-        // cooldown before checking level again
-        if (weaponUpdateCooldown-- > 0) return;
-        weaponUpdateCooldown = 40; // update every 2 seconds
-
-        // get weapon from owner lvl
-        ItemStack newWeapon = weaponFromOwner(player);
-        ItemStack current = this.getMainHandStack();
-
-        // only upgrade
-        if (!ItemStack.areItemsEqual(current, newWeapon)) {
-            this.equipStack(EquipmentSlot.MAINHAND, newWeapon);
-        }
-    }
-
     public boolean isPaused() { return this.dataTracker.get(IS_PAUSED); }
     public void setPaused(boolean paused) {
         this.dataTracker.set(IS_PAUSED, paused);
@@ -227,25 +279,51 @@ public class NPCEntity extends PathAwareEntity {
     }
     public boolean isBattleBuddy() { return this.dataTracker.get(IS_BATTLE_BUDDY); }
     public void setBattleBuddy(boolean battleBuddy, @Nullable PlayerEntity owner) {
+        if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+            CiviliansMod.LOGGER.info("[NPC {}] setBattleBuddy({}, owner={})",
+                    this.getId(), battleBuddy, owner != null ? owner.getName().getString() : "null");
+        }
         this.dataTracker.set(IS_BATTLE_BUDDY, battleBuddy);
 
         if (battleBuddy) {
-            //battlebudy needs follow
-            if (!this.isFollowing()) {
-                this.setFollowing(true, owner);
+            PlayerEntity actualOwner = owner;
+            if (actualOwner == null) {
+                LivingEntity o = getOwner();
+                if (o instanceof PlayerEntity p) actualOwner = p;
             }
 
-            if (owner != null) {
-                this.setOwner(owner);
-                // give weapon allways
-                ItemStack weapon = weaponFromOwner(owner);
-                this.equipStack(EquipmentSlot.MAINHAND, weapon);
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+                CiviliansMod.LOGGER.info("[NPC {}] actualOwner = {}",
+                        this.getId(),
+                        actualOwner != null ? actualOwner.getName().getString() : "NULL !!!");
             }
+
+            if (actualOwner != null) {
+                this.setOwner(actualOwner);
+            }
+
+            //battlebudy needs follow
+            if (!this.isFollowing()) {
+                if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+                    CiviliansMod.LOGGER.info("[NPC {}] Following was OFF → enabling follow", this.getId());
+                }
+                this.setFollowing(true, actualOwner);
+            }
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+                CiviliansMod.LOGGER.info("[NPC {}] -> Calling updateBattleBuddyWeapon()", this.getId());
+            }
+            updateBattleBuddyWeapon();
         } else {
             //battlebuddy off, deactivate weapon
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+                CiviliansMod.LOGGER.info("[NPC {}] BattleBuddy OFF – removing weapon", this.getId());
+            }
             this.equipStack(EquipmentSlot.MAINHAND, ItemStack.EMPTY);
             //if follow also disabled, delete owner
             if (!this.isFollowing()) {
+                if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY) {
+                    CiviliansMod.LOGGER.info("[NPC {}] Not following → removing owner", this.getId());
+                }
                 this.setOwnerUuid(null);
             }
         }
@@ -278,26 +356,67 @@ public class NPCEntity extends PathAwareEntity {
             return uUID == null ? null : this.getWorld().getPlayerByUuid(uUID);
         } catch (IllegalArgumentException e) { return null; }
     }
+
+    public void updateBattleBuddyWeapon() {
+        if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+            CiviliansMod.LOGGER.info("[NPC {}] updateBattleBuddyWeapon() called", this.getId());
+        }
+        if (!isBattleBuddy()) {
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+                CiviliansMod.LOGGER.warn("[NPC {}] CANCELED → isBattleBuddy=false", this.getId());
+            }
+            return;
+        }
+
+        LivingEntity o = getOwner();
+        if (!(o instanceof PlayerEntity owner)) {
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+                CiviliansMod.LOGGER.warn("[NPC {}] CANCELED → owner is null or NOT PlayerEntity", this.getId());
+            }
+            return;
+        }
+
+        int level = owner.experienceLevel;
+        Item target = switchWeaponForLevel(level);
+
+        if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+            CiviliansMod.LOGGER.info("[NPC {}] owner = {}", this.getId(), owner.getName().getString());
+            CiviliansMod.LOGGER.info("[NPC {}] owner level = {}", this.getId(), owner.experienceLevel);
+        }
+
+        if (target == null) {
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+                CiviliansMod.LOGGER.error("[NPC {}] ERROR → target weapon is NULL!", this.getId());
+            }
+            return;
+        }
+
+        ItemStack current = getMainHandStack();
+        if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+            CiviliansMod.LOGGER.info("[NPC {}] current weapon = {}", this.getId(), current);
+        }
+
+        if (!current.isOf(target)) {
+            if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+                CiviliansMod.LOGGER.info("[NPC {}] Weapon mismatch → UPGRADING!", this.getId());
+            }
+            ItemStack newWeapon = new ItemStack(target);
+            setStackInHand(Hand.MAIN_HAND, newWeapon);
+            equipStack(EquipmentSlot.MAINHAND, newWeapon.copy());
+        } else if (DEBUG_AI || DEBUG_AI_BATTLEBUDDY || DEBUG_AI_BATTLEBUDDY_WEAPON) {
+            CiviliansMod.LOGGER.info("[NPC {}] Weapon already correct → no change", this.getId());
+        }
+    }
+
     public void setOwner(PlayerEntity player) { this.setOwnerUuid(player.getUuid()); }
     //give BattleBuddy weapon from experienceLevel of the owner
-    private ItemStack weaponFromOwner(PlayerEntity owner) {
-        int lvl = owner.experienceLevel;
-
-        if (lvl < 5) {
-            return new ItemStack(Items.WOODEN_SHOVEL);
-        } else if (lvl < 10) {
-            return new ItemStack(Items.WOODEN_SWORD);
-        } else if (lvl < 15) {
-            return new ItemStack(Items.GOLDEN_SWORD);
-        } else if (lvl < 25) {
-            return new ItemStack(Items.STONE_SWORD);
-        } else if (lvl < 40) {
-            return new ItemStack(Items.IRON_SWORD);
-        } else if (lvl < 75) {
-            return new ItemStack(Items.DIAMOND_SWORD);
-        } else {
-            return new ItemStack(Items.NETHERITE_SWORD);
-        }
+    private Item switchWeaponForLevel(int lvl) {
+        if (lvl < 5) return Items.WOODEN_SHOVEL;
+        else if (lvl < 10) return Items.WOODEN_SWORD;
+        else if (lvl < 20) return Items.STONE_SWORD;
+        else if (lvl < 30) return Items.IRON_SWORD;
+        else if (lvl < 75) return Items.DIAMOND_SWORD;
+        else return Items.NETHERITE_SWORD;
     }
     public float getWanderRadius() { return this.dataTracker.get(WANDER_RADIUS); }
     public void setWanderRadius(float radius) { this.dataTracker.set(WANDER_RADIUS, MathHelper.clamp(radius, 4.0f, 64.0f)); }
@@ -422,6 +541,18 @@ public class NPCEntity extends PathAwareEntity {
     }
 
     @Override
+    public boolean damage(ServerWorld world, DamageSource source, float amount) {
+        boolean result = super.damage(world, source, amount);
+
+        if (result) {
+            // NPC was hurt, used for ALERT combat state
+            lastDamagedTick = this.age;
+        }
+
+        return result;
+    }
+
+    @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
         if (!this.getWorld().isClient) {
             if (this.skinManager.getSkinByteArray() == null) {
@@ -435,5 +566,34 @@ public class NPCEntity extends PathAwareEntity {
             }
         }
         return super.createSpawnPacket(entityTrackerEntry);
+    }
+
+    // call if owner was attacked...
+    public void onOwnerHit(LivingEntity target) {
+
+        int newCount = ownerHitCount.getOrDefault(target, 0) + 1;
+        ownerHitCount.put(target, newCount);
+
+        // expiry in 5 seconds
+        ownerHitExpire.put(target, this.age + 100);
+
+        // when hit twice, ATTACK
+        if (newCount >= 2) {
+            this.setTarget(target);
+        }
+    }
+    // call if OWNER was attacked BY A PLAYER (PVP → 2-hit logic)
+    public void onOwnerAttackedByPlayer(LivingEntity attacker) {
+
+        int newCount = ownerHitCount.getOrDefault(attacker, 0) + 1;
+        ownerHitCount.put(attacker, newCount);
+
+        // expiry in 5 seconds
+        ownerHitExpire.put(attacker, this.age + 100);
+
+        // when hit twice, ATTACK the player
+        if (newCount >= 2) {
+            this.setTarget(attacker);
+        }
     }
 }

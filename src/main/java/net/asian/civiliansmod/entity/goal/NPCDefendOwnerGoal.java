@@ -4,12 +4,17 @@ import net.asian.civiliansmod.entity.NPCEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.TargetPredicate;
 import net.minecraft.entity.ai.goal.TrackTargetGoal;
+import net.minecraft.server.world.ServerWorld;
+
 import java.util.EnumSet;
 
 public class NPCDefendOwnerGoal extends TrackTargetGoal {
     private final NPCEntity npc;
     private LivingEntity attacker;
     private int lastAttackedTime;
+
+    private final TargetPredicate defendPredicate = TargetPredicate.createAttackable().ignoreVisibility();
+
 
     public NPCDefendOwnerGoal(NPCEntity npc) {
         super(npc, false);
@@ -23,21 +28,26 @@ public class NPCDefendOwnerGoal extends TrackTargetGoal {
         if (!this.npc.isBattleBuddy()) {
             return false;
         }
+
         LivingEntity owner = this.npc.getOwner();
         if (owner == null || owner.isDead()) {
             return false;
         }
+
         // Get the entity that last attacked the owner
         this.attacker = owner.getAttacker();
-        int i = owner.getLastAttackedTime();
-        // Check if the attack is new and if we can target the attacker
-        // CORRECTED LINE: Use the getter method for the predicate
-        return i != this.lastAttackedTime && this.canTrack(this.attacker, this.getTargetPredicate());
-    }
+        int attackedTime = owner.getLastAttackedTime();
 
-    private TargetPredicate getTargetPredicate() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'getTargetPredicate'");
+        // If no attacker → skip
+        if (attacker == null || !attacker.isAlive()) return false;
+
+        if (attacker == this.npc) return false;
+
+        // Only react to NEW hits
+        if (attackedTime == this.lastAttackedTime) return false;
+
+        // Validate attacker using predicate
+        return defendPredicate.test((ServerWorld) npc.getWorld(), npc, attacker);
     }
 
     @Override

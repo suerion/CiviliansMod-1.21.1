@@ -1,10 +1,12 @@
 package net.asian.civiliansmod.renderer;
 
+import net.minecraft.client.render.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.render.entity.state.BipedEntityRenderState;
 import net.minecraft.client.render.item.ItemRenderState;
 import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.SkinTextures;
 import net.minecraft.entity.passive.ParrotEntity;
+import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -14,20 +16,25 @@ public class NPCRenderState extends BipedEntityRenderState {
     public boolean slim;
     public Identifier texture;
     public boolean spectator;
+
     public boolean hatVisible = true;
     public boolean jacketVisible = true;
     public boolean leftPantsLegVisible = true;
     public boolean rightPantsLegVisible = true;
     public boolean leftSleeveVisible = true;
     public boolean rightSleeveVisible = true;
+
     public float glidingTicks;
 
     @Nullable
     public Text playerName;
+
     @Nullable
     public ParrotEntity.Variant leftShoulderParrotVariant;
+
     @Nullable
     public ParrotEntity.Variant rightShoulderParrotVariant;
+
     public int id;
     public String name = "Steve";
     public final ItemRenderState spyglassState = new ItemRenderState();

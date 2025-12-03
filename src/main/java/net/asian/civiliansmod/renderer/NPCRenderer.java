@@ -6,7 +6,10 @@ import net.asian.civiliansmod.model.NPCModel;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
+import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.render.entity.state.ArmedEntityRenderState;
+import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -29,6 +32,7 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         // Cache both default and slim models for reuse
         this.defaultModel = new NPCModel(context.getPart(DEFAULT_ENTITY_MODEL_LAYER), false);
         this.slimModel = new NPCModel(context.getPart(SLIM_ENTITY_MODEL_LAYER), true);
+        this.addFeature(new HeldItemFeatureRenderer<>(this));
     }
 
     @Override
@@ -68,13 +72,20 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
 
         livingEntityRenderState.slim = livingEntity.getSkinManager().isSlimModel();
+        livingEntityRenderState.texture = livingEntity.getSkinManager().getIdSkin().id();
         Identifier newSkin = livingEntity.getSkinManager().getIdSkin().id();
 
-        if (CiviliansMod.DEBUG_TEXTURE) {
-            CiviliansMod.LOGGER.info("[Renderer/Texture] NPC {} -> {}", livingEntity.getId(), newSkin);
-        }
+        ArmedEntityRenderState.updateRenderState(livingEntity, livingEntityRenderState, this.itemModelResolver);
+
         if (CiviliansMod.DEBUG_RENDER) {
-            CiviliansMod.LOGGER.info("[Renderer/State] slim={} id={}", livingEntityRenderState.slim, livingEntity.getId());
+            CiviliansMod.LOGGER.info(
+                    "[NPC/RenderState] id={} slim={} texture={} mainHandItem={} offHandItem={}",
+                    livingEntity.getId(),
+                    livingEntityRenderState.slim,
+                    livingEntityRenderState.texture,
+                    livingEntityRenderState.getMainHandItemState(),
+                    livingEntityRenderState.leftHandItemState
+            );
         }
 
         livingEntityRenderState.texture = newSkin;

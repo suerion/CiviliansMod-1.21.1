@@ -52,12 +52,10 @@ public record NPCDataPayload(
             // Run on the main server thread to prevent concurrency issues
             player.getServer().execute(() -> {
                 npc.setCustomName(Text.literal(payload.name));
-                npc.setPaused(payload.paused);
-
                 // Set Battle Buddy, Follower and assign owner if it's being turned on
                 npc.setFollowing(payload.following, player);
                 npc.setBattleBuddy(payload.battleBuddy, player);
-
+                npc.setPaused(payload.paused);
                 npc.setWanderRadius(payload.wanderRadius);
                 npc.setDialogueOrdered(payload.dialogueOrdered);
                 npc.setTradePreset(payload.tradePreset);
