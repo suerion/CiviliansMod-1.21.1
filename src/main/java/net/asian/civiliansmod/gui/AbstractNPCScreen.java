@@ -434,34 +434,23 @@ public abstract class AbstractNPCScreen extends Screen {
                 int by = containerY + 155;
 
                 //toogle selection mode
-                this.addDrawableChild(ButtonWidget.builder(
-                        Text.literal(selectionMode ? "Exit Select" : "Select Mode"),
-                        btn -> {
-                            toggleSelection();
-                            btn.setMessage(Text.literal(selectionMode ? "Exit Select" : "Select Mode"));
-                        }
-                ).dimensions(bx, by, 90, 20).build());
+                this.addDrawableChild(ButtonWidget.builder(Text.literal(selectionMode ? "Exit Select" : "Select Mode"),btn -> {
+                    toggleSelection();
+                    btn.setMessage(Text.literal(selectionMode ? "Exit Select" : "Select Mode"));
+                }).dimensions(bx, by, 90, 20).build());
 
                 //delete selected
-                this.addDrawableChild(ButtonWidget.builder(
-                        Text.literal("Delete Selected"),
-                        btn -> {
-                            deleteSelected();
-                            // Refresh list after deletion
-                            if (dialogueList != null) dialogueList.reloadFromNPC();
-                        }
-                ).dimensions(bx + 95, by, 110, 20).build());
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete Selected"),btn -> {
+                    deleteSelected();
+                    // Refresh list after deletion
+                    if (dialogueList != null) dialogueList.reloadFromNPC();
+                }).dimensions(bx + 95, by, 110, 20).build());
 
                 //delete all
-                this.addDrawableChild(ButtonWidget.builder(
-                        Text.literal("Delete All"),
-                        btn -> {
-                            deleteAll();
-                            if (dialogueList != null) dialogueList.reloadFromNPC();
-                        }
-                ).dimensions(bx + 210, by, 80, 20).build());
-
-
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete All"), btn -> {
+                    deleteAll();
+                    if (dialogueList != null) dialogueList.reloadFromNPC();
+                }).dimensions(bx + 210, by, 80, 20).build());
             }
         }
     }
