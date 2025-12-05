@@ -570,6 +570,9 @@ public class NPCEntity extends PathAwareEntity {
 
     // call if owner was attacked...
     public void onOwnerHit(LivingEntity target) {
+        if (target == this || target == this.getOwner()) {
+            return;
+        }
 
         int newCount = ownerHitCount.getOrDefault(target, 0) + 1;
         ownerHitCount.put(target, newCount);
@@ -582,7 +585,8 @@ public class NPCEntity extends PathAwareEntity {
             this.setTarget(target);
         }
     }
-    // call if OWNER was attacked BY A PLAYER (PVP → 2-hit logic)
+
+    // call if OWNER was attacked BY A PLAYER (2-hit logic)
     public void onOwnerAttackedByPlayer(LivingEntity attacker) {
 
         int newCount = ownerHitCount.getOrDefault(attacker, 0) + 1;

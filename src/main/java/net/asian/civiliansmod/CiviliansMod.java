@@ -91,12 +91,18 @@ public class CiviliansMod implements ModInitializer {
                 LivingEntity owner = npc.getOwner();
                 if (owner == null) continue;
 
-                // Case 1: OWNER hits something (mob or player) → 2-hit logic on TARGET
+                // Case 1: OWNER hits something, mob or player - 2-hits on TARGET
                 if (owner == attacker) {
+
+                    // if owner attack npc or owner himself, don't do that
+                    if (target == npc || target == owner) {
+                        continue;
+                    }
+
                     npc.onOwnerHit(target);
                 }
 
-                // Case 2: OWNER is being hit by a PLAYER → PVP 2-hit logic on ATTACKER
+                // Case 2: OWNER is being hit by a player - 2-hit logic on ATTACKER
                 if (entity == owner && attacker != owner) {
                     npc.onOwnerAttackedByPlayer(attacker);
                 }
