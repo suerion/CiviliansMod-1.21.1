@@ -500,8 +500,7 @@ public class NPCEntity extends PathAwareEntity {
             return;
         }
 
-        int baseVariant = this.getSkinManager().getBaseVariant();
-        SkinIdentifier skinId = NPCUtil.getNPCTexture(baseVariant);
+        SkinIdentifier skinId = this.getSkinManager().getIdSkin();
 
         if (skinId.custom()) {
               client.setScreen(new CustomNPCScreen(this));
@@ -569,13 +568,17 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
         if (!this.getWorld().isClient) {
-            if (this.skinManager.getSkinByteArray() == null) {
-                for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
-                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), this.skinManager.getBaseVariant()));
+            // Custom Skin
+            if (this.skinManager.getSkinByteArray() != null) {
+                for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
+                    ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.isSlimModel(), this.skinManager.getSkinByteArray()));
                 }
             } else {
-                for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
-                    ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.isSlimModel(), this.skinManager.getSkinByteArray()));
+                // DEFAULT Skin
+                SkinIdentifier skinId = this.skinManager.getIdSkin();
+
+                for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
+                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skinId.id(), skinId.slim()));
                 }
             }
         }
