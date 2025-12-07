@@ -636,12 +636,27 @@ public abstract class AbstractNPCScreen extends Screen {
         S state = renderer.createRenderState();
         renderer.updateRenderState(entity, state, client.getRenderTickCounter().getTickProgress(false));
 
-        if (isPreview && state instanceof net.minecraft.client.render.entity.state.LivingEntityRenderState s) {
-            float headYaw = entity.headYaw;
-            float bodyYaw = headYaw * 0.1F;
-            s.bodyYaw = bodyYaw;
-            s.relativeHeadYaw = headYaw - bodyYaw;
-            s.pitch = entity.getPitch();
+        if (state instanceof net.minecraft.client.render.entity.state.LivingEntityRenderState s) {
+            if (isPreview) {
+                float headYaw = entity.headYaw;
+                float bodyYaw = headYaw * 0.1F;
+                s.bodyYaw = bodyYaw;
+                s.relativeHeadYaw = headYaw - bodyYaw;
+                s.pitch = entity.getPitch();
+            }
+            if (!isPreview) {
+                s.bodyYaw = 0.0F;
+                s.relativeHeadYaw = 0.0F;
+                s.pitch = 0.0F;
+
+                s.limbSwingAnimationProgress = 0.0F;
+                s.limbSwingAmplitude = 0.0F;
+                s.deathTime = 0.0F;
+                s.shaking = false;
+                s.hurt = false;
+                s.touchingWater = false;
+                s.usingRiptide = false;
+            }
         }
 
         Vector3f translation = new Vector3f(0f, 0f, 0f);
