@@ -40,7 +40,7 @@ public class CiviliansMod implements ModInitializer {
     public static final boolean DEBUG_AI_BATTLEBUDDY = false;
     public static final boolean DEBUG_AI_BATTLEBUDDY_WEAPON = false;// AI battlebuddy debug to logger
     public static final boolean DEBUG_NETWORK = false;  // networking debug to logger
-    public static final boolean DEBUG_RENDER = true;    // renderer debug to logger
+    public static final boolean DEBUG_RENDER = false;    // renderer debug to logger
     public static final boolean DEBUG_GUI = false; // gui debug to logger
 
     public static Map<UUID, String> playerLanguages = new HashMap<>();

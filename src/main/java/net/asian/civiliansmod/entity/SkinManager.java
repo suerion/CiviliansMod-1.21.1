@@ -1,6 +1,10 @@
 package net.asian.civiliansmod.entity;
 
 import com.mojang.serialization.Codec;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.texture.NativeImage;
+import net.minecraft.client.texture.NativeImageBackedTexture;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.Codecs;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.util.NPCUtil;
@@ -53,6 +57,10 @@ public class SkinManager {
 
     public void setSkinByteArray(byte[] skinByteArray) {
         this.skinByteArray = skinByteArray;
+        this.defaultSkin = false;
+        if (MinecraftClient.getInstance() != null) {
+            uploadDynamicTexture();
+        }
     }
 
     @Environment(EnvType.CLIENT)
@@ -66,6 +74,23 @@ public class SkinManager {
             return NPCUtil.getNPCTexture(baseVariant);
         }
         return this.skinIdentifier;
+    }
+
+    @Environment(EnvType.CLIENT)
+    public void uploadDynamicTexture() {
+        if (skinByteArray == null) return;
+
+        try {
+            NativeImage img = NativeImage.read(skinByteArray);
+            Identifier id = Identifier.of("civiliansmod", "npc_skin_" + npcEntity.getUuid());
+
+            NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> id.getPath(), img);
+            MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
+
+            this.skinIdentifier = new SkinIdentifier(id, slim, true);
+        } catch (Exception e) {
+            CiviliansMod.LOGGER.error("Failed to upload NPC custom skin", e);
+        }
     }
 
     void writeView(WriteView writeView) {
@@ -87,6 +112,10 @@ public class SkinManager {
         if (skin.isPresent()) {
             this.skinByteArray = skin.get().skin;
             this.defaultSkin = false;
+
+            if (MinecraftClient.getInstance() != null) {
+                uploadDynamicTexture();
+            }
         }
     }
 
