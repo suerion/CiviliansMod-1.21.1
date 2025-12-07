@@ -85,13 +85,15 @@ public class DialogueEntryWidget extends ClickableWidget {
 
         var renderer = MinecraftClient.getInstance().textRenderer;
 
-        int deletePadding = selectionMode ? 0 : (DELETE_SIZE + 4);
-        int availableWidth = getWidth() - deletePadding - 6;
+        int controlSize = selectionMode ? 12 : DELETE_SIZE;
+        int rightPadding = controlSize + 4;
+
+        int availableWidth = getWidth() - rightPadding - 6;
 
         if (availableWidth < 20)
             availableWidth = 20;
 
-        String trimmed = renderer.trimToWidth(dialogue, availableWidth);
+        String trimmed = renderer.trimToWidth(dialogue, availableWidth - renderer.getWidth("..."));
 
         if (renderer.getWidth(dialogue) > availableWidth)
             trimmed += "...";
@@ -102,8 +104,12 @@ public class DialogueEntryWidget extends ClickableWidget {
 
         if (selectionMode) {
 
-            checkbox.setX(getX() + 2);
-            checkbox.setY(getY() + (getHeight() - 10) / 2);
+            int checkboxSize = 12;
+            int checkboxX = getX() + getWidth() - checkboxSize - 4;
+            int checkboxY = getY() + (getHeight() - checkboxSize) / 2;
+
+            checkbox.setX(checkboxX);
+            checkbox.setY(checkboxY);
             checkbox.renderWidget(context, mouseX, mouseY, delta);
         } else {
 

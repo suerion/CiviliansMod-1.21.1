@@ -55,7 +55,7 @@ public class CheckboxWidget extends PressableWidget {
             sprite = this.isHovered() ? UNCHECKED_HL : UNCHECKED;
         }
 
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite, getX(), getY(), 20, 20);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, sprite, getX(), getY(), 12, 12);
 
         // Draw the label text
         TextRenderer renderer = MinecraftClient.getInstance().textRenderer;

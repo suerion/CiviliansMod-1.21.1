@@ -72,22 +72,39 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
 
         livingEntityRenderState.slim = livingEntity.getSkinManager().isSlimModel();
-        livingEntityRenderState.texture = livingEntity.getSkinManager().getIdSkin().id();
         Identifier newSkin = livingEntity.getSkinManager().getIdSkin().id();
+        livingEntityRenderState.texture = newSkin;
+
+        //adding animations
+        // hit animation
+        livingEntityRenderState.handSwingProgress = livingEntity.getHandSwingProgress(f);
+
+        // run animation
+        livingEntityRenderState.limbSwingAnimationProgress = livingEntity.limbAnimator.getAnimationProgress(f);
+        livingEntityRenderState.limbSwingAmplitude        = livingEntity.limbAnimator.getAmplitude(f);
+
+        //item use animatione
+        livingEntityRenderState.isUsingItem  = livingEntity.isUsingItem();
+        livingEntityRenderState.itemUseTime  = livingEntity.getItemUseTime();
+        livingEntityRenderState.activeHand   = livingEntity.getActiveHand();
+        livingEntityRenderState.preferredArm = livingEntity.getMainArm();
+
+        //sneaking and swimming
+        livingEntityRenderState.isInSneakingPose = livingEntity.isInSneakingPose();
+        livingEntityRenderState.isSwimming       = livingEntity.isSwimming();
 
         ArmedEntityRenderState.updateRenderState(livingEntity, livingEntityRenderState, this.itemModelResolver);
 
         if (CiviliansMod.DEBUG_RENDER) {
             CiviliansMod.LOGGER.info(
-                    "[NPC/RenderState] id={} slim={} texture={} mainHandItem={} offHandItem={}",
+                    "[NPC/RenderState] id={} slim={} texture={} swing={} mainHandItem={} offHandItem={}",
                     livingEntity.getId(),
                     livingEntityRenderState.slim,
                     livingEntityRenderState.texture,
+                    livingEntityRenderState.handSwingProgress,
                     livingEntityRenderState.getMainHandItemState(),
                     livingEntityRenderState.leftHandItemState
             );
         }
-
-        livingEntityRenderState.texture = newSkin;
     }
 }

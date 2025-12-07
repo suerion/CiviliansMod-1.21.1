@@ -408,7 +408,8 @@ public abstract class AbstractNPCScreen extends Screen {
 
                 //wanderslider only if no stay, no follow, no battlebuddy
                 if (!this.stayState && !this.followState && !this.battleBuddyState) {
-                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) wanderRadiusState),(wanderRadiusState - 4f) / 60f) {
+                    double sliderValue = MathHelper.clamp((wanderRadiusState - 4f) / 60f, 0.0, 1.0);
+                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) wanderRadiusState),sliderValue) {
                         @Override
                         protected void updateMessage() {
                             //only current mapped value

@@ -140,6 +140,8 @@ public class NPCEntity extends PathAwareEntity {
     public void tick() {
         super.tick();
 
+        this.tickHandSwing();
+
         // Combat state tick
         this.tickCombat();
     }
@@ -519,10 +521,22 @@ public class NPCEntity extends PathAwareEntity {
 
     @Environment(EnvType.CLIENT)
     public void refreshSkinModel() {
+
+        if (!this.skinManager.isDefaultSkin()) {
+            this.calculateDimensions();
+            if (DEBUG_TEXTURE) {
+                CiviliansMod.LOGGER.info("[Client] RefreshSkinModel(): custom skin – no reload.");
+            }
+            return;
+        }
+
         this.calculateDimensions();
         this.setPosition(this.getX(), this.getY(), this.getZ());
+
         MinecraftClient.getInstance().worldRenderer.reload();
-        CiviliansMod.LOGGER.info("[Client] RefreshSkinModel() executed for NPC {}", this.getId());
+        if (DEBUG_TEXTURE) {
+            CiviliansMod.LOGGER.info("[Client] RefreshSkinModel(): default skin – renderer reloaded.");
+        }
     }
 
     @Override

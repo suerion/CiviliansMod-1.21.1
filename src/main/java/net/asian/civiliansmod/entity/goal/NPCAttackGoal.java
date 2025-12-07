@@ -3,6 +3,7 @@ package net.asian.civiliansmod.entity.goal;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.ai.goal.MeleeAttackGoal;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Hand;
 
 public class NPCAttackGoal extends MeleeAttackGoal {
@@ -34,13 +35,20 @@ public class NPCAttackGoal extends MeleeAttackGoal {
     }
 
     @Override
+    public void start() {
+        super.start();
+        npc.setAttacking(true);
+    }
+
+    @Override
     public void stop() {
         super.stop();
         npc.setTarget(null);
+
     }
     @Override
     protected void attack(LivingEntity target) {
-
+        npc.setAttacking(true);
         // Check vanilla attack conditions (range, cooldown, visibility)
         if (this.canAttack(target)) {
 
@@ -50,8 +58,7 @@ public class NPCAttackGoal extends MeleeAttackGoal {
             // Play attack animation
             npc.swingHand(Hand.MAIN_HAND);
 
-            // Deal damage (requires ServerWorld!!)
-            npc.tryAttack(getServerWorld(npc), target);
+            npc.tryAttack((ServerWorld) npc.getWorld(), target);
         }
     }
 }
