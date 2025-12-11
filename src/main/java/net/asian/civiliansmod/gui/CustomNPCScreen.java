@@ -37,13 +37,24 @@ public class CustomNPCScreen extends AbstractNPCScreen {
 
         // The following buttons are specific to the Custom Skin screen
         if (this.currentTab == Tab.SKINS) {
-            
+
+            final int GRID_X = 84;
+            final int GRID_Y = 32;
+            final int GRID_W = 118;
+
+            int folderX = containerX + GRID_X + GRID_W + 2;
+            int folderY = containerY + GRID_Y + 10;
+
+            int buttonWidth = 70;
+            int buttonHeight = 13;
+
+
             // Add buttons to open the custom skin folders, positioned on the left panel
             this.addDrawableChild(ButtonWidget.builder(Text.literal("↑ Open Wide Folder"), button -> SkinFolderManager.openFolder(SkinFolderManager.NPCModel.WIDE))
-                    .dimensions(containerX + 8, containerY + 94, 100, 20).build());
+                    .dimensions(folderX, folderY, buttonWidth, buttonHeight).build());
 
             this.addDrawableChild(ButtonWidget.builder(Text.literal("↑ Open Slim Folder"), button -> SkinFolderManager.openFolder(SkinFolderManager.NPCModel.SLIM))
-                    .dimensions(containerX + 8, containerY + 116, 100, 20).build());
+                    .dimensions(folderX, folderY + buttonHeight + 4, buttonWidth, buttonHeight).build());
             
         }
     }

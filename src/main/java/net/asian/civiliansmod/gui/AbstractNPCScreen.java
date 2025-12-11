@@ -4,6 +4,7 @@ import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
 import net.asian.civiliansmod.gui.widgets.DialogueListWidget;
+import net.asian.civiliansmod.gui.widgets.TextButtonWidget;
 import net.asian.civiliansmod.networking.NPCDataPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.MassRemoveDialoguePayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
@@ -37,11 +38,12 @@ public abstract class AbstractNPCScreen extends Screen {
 
     //refactore GUI positions
     private static final int TABS_X = 10;
-    private static final int TABS_Y = 10;
+    private static final int TABS_Y = 8;
     private static final int TAB_WIDTH = 64;
-    private static final int TAB_HEIGHT = 20;
+    private static final int TAB_HEIGHT = 13;
     private static final int TAB_SPACING = 4;
 
+    private static final int CUSTOMBUTTON_HEIGHT = 13;
 
     private static final int PREVIEW_X = 16;
     private static final int PREVIEW_Y = 47;
@@ -57,20 +59,21 @@ public abstract class AbstractNPCScreen extends Screen {
     // constants for small preview layout
     private static final int SKIN_CELL_SPACING = 1;
     private static final int SKIN_CELL_W = 38;
-    private static final int SKIN_CELL_H = 62;
+    private static final int SKIN_CELL_H = 56;
     private static final int SKIN_COLUMNS = 3;
-    private static final int GRID_X = 84;
-    private static final int GRID_Y = 32;
+    private static final int GRID_X = 83;
+    private static final int GRID_Y = 39;
     private static final int GRID_W = (SKIN_COLUMNS * SKIN_CELL_W) + ((SKIN_COLUMNS - 1) * SKIN_CELL_SPACING);
     private static final int GRID_H = (2 * SKIN_CELL_H) + ((2 - 1) * SKIN_CELL_SPACING);
     private static final int ENTITY_PREVIEW_SIZE = 25; // small NPCs
-    private int skinScrollOffset = 0;
+    private double skinScrollY = 0;
+    private double maxSkinScrollY = 0;
 
     //constante for buttons
     private static final int BTN_SKIN_X = GRID_X + GRID_W;
-    private static final int BTN_SKIN_Y = GRID_Y + 4;
+    private static final int BTN_SKIN_Y = GRID_Y;
     private static final int BTN_SKIN_W = 40;
-    private static final int BTN_SKIN_H = 18;
+    private static final int BTN_SKIN_H = 13;
     private static final int BTN_SKIN_SPACING = 6;
 
     private static final int BTN_CUSTOM_WIDTH = 52;
@@ -203,18 +206,46 @@ public abstract class AbstractNPCScreen extends Screen {
         this.addSelectableChild(this.nameInputField);
 
         //buttons bottom
+        /*
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Save & Close"), b -> this.saveAndClose()).dimensions(containerX + containerWidth - 88, containerY + containerHeight - 28, 80, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), b -> this.close()).dimensions(containerX + 8, containerY + containerHeight - 28, 80, 20).build());
+*/
+        this.addDrawableChild(new TextButtonWidget(containerX + containerWidth - 88, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Save & Close"), b -> this.saveAndClose()));
+        this.addDrawableChild(new TextButtonWidget(containerX + 8, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Cancel"), b -> this.close()));
 
-        //tab buttons
-        int tabStartX = containerX + TABS_X;
+        int TABAREAX = containerX + TABS_X;
+        int TABAREAWIDTH = containerWidth - (TABS_X * 2);
         int tabStartY = containerY + TABS_Y;
+
+        int tabCount = Tab.values().length;
+        int totalSpacing = (tabCount - 1) * TAB_SPACING;
+        int availableWidth = TABAREAWIDTH - totalSpacing;
+        int dynamicTabWidth = availableWidth / tabCount;
+        if (dynamicTabWidth < 40) dynamicTabWidth = 40;
+
+        int totalWidth = (tabCount * dynamicTabWidth) + ((tabCount - 1) * TAB_SPACING);
+        int startX = TABAREAX + (TABAREAWIDTH - totalWidth) / 2;
+
+        /*
 
         this.addDrawableChild(ButtonWidget.builder(Tab.SKINS.title, b -> this.switchTab(Tab.SKINS)).dimensions(tabStartX, tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.AI.title, b -> this.switchTab(Tab.AI)).dimensions(tabStartX + (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.DIALOGUES.title, b -> this.switchTab(Tab.DIALOGUES)).dimensions(tabStartX + 2 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
         this.addDrawableChild(ButtonWidget.builder(Tab.TRADES.title, b -> this.switchTab(Tab.TRADES)).dimensions(tabStartX + 3 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
 
+        */
+
+        int tx = startX;
+
+        for (int i = 0; i < tabCount; i++) {
+            Tab t = Tab.values()[i];
+
+            int tabColor = 0xFFFFFF;
+            boolean active = (t == currentTab);
+
+            this.addDrawableChild(new TextButtonWidget(tx, tabStartY, dynamicTabWidth, TAB_HEIGHT, t.title, b -> this.switchTab(t) ,tabColor));
+            tx += dynamicTabWidth + TAB_SPACING;
+        }
         //tab widgets
         this.initTabWidgets();
     }
@@ -298,8 +329,6 @@ public abstract class AbstractNPCScreen extends Screen {
     }
 
     private void initTabWidgets() {
-        int buttonx = containerX + BTN_SKIN_X;
-        int buttony = containerY + BTN_SKIN_Y;
 
         int contentX = containerX + GRID_X;
         int contentY = containerY + GRID_Y;
@@ -307,14 +336,27 @@ public abstract class AbstractNPCScreen extends Screen {
         int contentWidth = 128;
         switch (this.currentTab) {
             case SKINS -> {
+
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                // active colors
+                boolean isWide   = this instanceof DefaultNPCScreen;
+                boolean isSlim   = this instanceof SlimNPCScreen;
+                boolean isCustom = this instanceof CustomNPCScreen;
+
+                int wideColor   = isWide   ? 0x00FF00 : 0xFFFFFF;
+                int slimColor   = isSlim   ? 0x00FF00 : 0xFFFFFF;
+                int customColor = isCustom ? 0x00FF00 : 0xFFFFFF;
+
                 //skins from cubclass
                 List<Integer> list = this.getSkinsToRender();
                 this.skinsToRender = (list != null) ? list : Collections.emptyList();
 
                 //skin type switch buttons
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"), (btn) -> this.client.setScreen(new DefaultNPCScreen(this.npc))).dimensions(buttonx, buttony, BTN_SKIN_W, BTN_SKIN_H).build());
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"), (btn) -> this.client.setScreen(new SlimNPCScreen(this.npc))).dimensions(buttonx + BTN_SKIN_W + BTN_SKIN_SPACING, buttony, BTN_SKIN_W, BTN_SKIN_H).build());
-                this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"), (btn) -> this.client.setScreen(new CustomNPCScreen(this.npc))).dimensions(buttonx, buttony + BTN_CUSTOM_Y_OFFSET, BTN_CUSTOM_WIDTH, BTN_SKIN_H).build());
+                this.addDrawableChild(new TextButtonWidget(topX, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Wide"), btn -> this.client.setScreen(new DefaultNPCScreen(this.npc)),wideColor));
+                this.addDrawableChild(new TextButtonWidget(topX + BTN_SKIN_W, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Slim"), btn -> this.client.setScreen(new SlimNPCScreen(this.npc)), slimColor));
+                this.addDrawableChild(new TextButtonWidget(topX + (BTN_SKIN_W) * 2, topY, BTN_CUSTOM_WIDTH, BTN_SKIN_H, Text.literal("Custom"), btn -> this.client.setScreen(new CustomNPCScreen(this.npc)), customColor));
             }
             case AI -> {
                 this.wanderRadiusState = npc.getWanderRadius();
@@ -512,12 +554,18 @@ public abstract class AbstractNPCScreen extends Screen {
 
         context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
 
+        int totalRows = (int)Math.ceil(skinsToRender.size() / (double)SKIN_COLUMNS);
+        int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
+
+        maxSkinScrollY = Math.max(0, contentHeight - GRID_H);
+        skinScrollY = MathHelper.clamp(skinScrollY, 0, maxSkinScrollY);
+
         for (int i = 0; i < skinsToRender.size(); i++) {
             int col = i % SKIN_COLUMNS;
             int row = i / SKIN_COLUMNS;
 
             int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
-            int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - skinScrollOffset;
+            int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - (int) skinScrollY;
 
             int skinIndex = skinsToRender.get(i);
 
@@ -529,8 +577,37 @@ public abstract class AbstractNPCScreen extends Screen {
             renderVariantPreview(context, skinX, skinY, skinIndex, mouseX, mouseY);
         }
         context.disableScissor();
+        renderSkinScrollbar(context);
     }
 
+    private void renderSkinScrollbar(DrawContext context) {
+
+        if (maxSkinScrollY <= 0) return;
+
+        int barWidth = 7;
+
+        int barX = containerX + GRID_X -12;
+        int barY = containerY + GRID_Y;
+        int barHeight = GRID_H;
+
+        context.fill(barX, barY, barX + barWidth, barY + barHeight, 0x22000000);
+
+        float ratio = (float)(GRID_H / (float)(maxSkinScrollY + GRID_H));
+        int thumbHeight = Math.max(24, (int)(GRID_H * ratio));
+
+        int thumbY = barY + (int)((skinScrollY / maxSkinScrollY) * (GRID_H - thumbHeight));
+
+        double mx = MinecraftClient.getInstance().mouse.getX() / MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double my = MinecraftClient.getInstance().mouse.getY() / MinecraftClient.getInstance().getWindow().getScaleFactor();
+
+        boolean hovered =
+                mx >= barX && mx <= barX + barWidth &&
+                        my >= thumbY && my <= thumbY + thumbHeight;
+
+        int thumbColor = hovered ? 0xFFFFFFFF : 0xFF999999;
+
+        context.fill(barX + 1, thumbY + 1, barX + barWidth - 1, thumbY + thumbHeight - 1, thumbColor);
+    }
     private void renderVariantPreview(DrawContext context, int x, int y, int skinIndex, int mouseX, int mouseY) {
         int width = SKIN_CELL_W;
         int height = SKIN_CELL_H;
@@ -554,7 +631,7 @@ public abstract class AbstractNPCScreen extends Screen {
         // small NPC preview inside cell
         NPCEntity preview = getPreviewNPC(skinIndex);
         int centerX = x + width / 2;
-        int centerY = y + height - 6;
+        int centerY = y + height - 3;
         renderEntity(context, centerX, centerY, ENTITY_PREVIEW_SIZE, preview, false);
     }
 
@@ -570,7 +647,7 @@ public abstract class AbstractNPCScreen extends Screen {
                 int row = i / SKIN_COLUMNS;
 
                 int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
-                int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - skinScrollOffset;
+                int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - (int) skinScrollY;
 
                 int width = SKIN_CELL_W;
                 int height = SKIN_CELL_H;
@@ -598,10 +675,10 @@ public abstract class AbstractNPCScreen extends Screen {
             int totalRows = (int) Math.ceil((double) skinsToRender.size() / SKIN_COLUMNS);
             int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
 
-            this.skinScrollOffset = (int) MathHelper.clamp(
-                    this.skinScrollOffset - verticalAmount * 10,
+            skinScrollY = MathHelper.clamp(
+                    skinScrollY - verticalAmount * 10,
                     0,
-                    Math.max(0, contentHeight - GRID_H)
+                    maxSkinScrollY
             );
             return true;
         }

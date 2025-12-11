@@ -1,21 +1,27 @@
 package net.asian.civiliansmod.gui.widgets;
 
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.screen.ButtonTextures;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
 
 @SuppressWarnings("unused")
 @Environment(EnvType.CLIENT)
 public class TextButtonWidget extends ButtonWidget {
 
-    private static final int BG_NORMAL  = 0xFF2B2B2B;
-    private static final int BG_HOVER   = 0xFF3A3A3A;
-    private static final int BG_BORDER  = 0xFF555555;
+    private static final ButtonTextures TEXTURES = new ButtonTextures(
+            Identifier.ofVanilla("widget/button"),
+            Identifier.ofVanilla("widget/button_disabled"),
+            Identifier.ofVanilla("widget/button_highlighted")
+    );
 
-    private int buttonColor = BG_NORMAL;
     private int textColor = 0xFFFFFF;
 
     public TextButtonWidget(int x, int y, int width, int height, Text text, PressAction onPress) {
@@ -35,21 +41,18 @@ public class TextButtonWidget extends ButtonWidget {
     @Override
     protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 
-        // background
-        int background = this.isHovered() ? BG_HOVER : BG_NORMAL;
-        context.fill(getX(), getY(), getX() + width, getY() + height, background);
-
-        // border
-        context.fill(getX(), getY() + height - 1, getX() + width, getY() + height, BG_BORDER);
+        Identifier button = TEXTURES.get(this.active, this.isHovered());
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, button, this.getX(), this.getY(), this.getWidth(), this.getHeight());
 
         // color
-        int color = this.active ? this.textColor : 0xFF777777;
+        int baseColor = this.active ? this.textColor : 0xA0A0A0;
+        int argbcolor = baseColor | (MathHelper.ceil(this.alpha * 255.0F) << 24);
 
         // center
         var renderer = MinecraftClient.getInstance().textRenderer;
         int textX = getX() + (width - renderer.getWidth(getMessage())) / 2;
         int textY = getY() + (height - 8) / 2;
 
-        context.drawText(renderer, getMessage(), textX, textY, color, false);
+        context.drawText(renderer, getMessage(), textX, textY, argbcolor, false);
     }
 }

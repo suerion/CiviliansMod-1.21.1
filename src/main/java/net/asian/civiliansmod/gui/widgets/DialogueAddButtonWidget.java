@@ -37,13 +37,11 @@ public class DialogueAddButtonWidget extends ClickableWidget {
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 
-        // old-style background (dark transparent)
-        int background = isHovered() ? 0x66000000 : 0x44000000;
-        context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), background);
+        int btcolor = 0xFFFFFFFF;
+        if (!this.active) btcolor = 0xFF808080;
+        else if (isHovered()) btcolor = 0xFFC0C0C0;
 
-        context.fill(getX(), getY(), getX() + getWidth(), getY() + 1, 0xFF777777);
-
-        context.fill(getX(), getY() + getHeight() - 1, getX() + getWidth(), getY() + getHeight(), 0xFF777777);
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), getX(), getY(), getWidth(), getHeight(), btcolor);
 
         int iconX = getX() + (getWidth() / 2) - (ICON_SIZE / 2);
         int iconY = getY() + (getHeight() / 2) - (ICON_SIZE / 2);

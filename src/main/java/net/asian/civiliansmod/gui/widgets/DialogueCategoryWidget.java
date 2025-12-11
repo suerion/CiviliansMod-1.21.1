@@ -117,19 +117,18 @@ public class DialogueCategoryWidget extends ClickableWidget {
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 
-        // REASON
-        int background = isHovered() ? HEADER_BG_HOVER : HEADER_BG;
-        context.fill(getX(), getY(), getX() + getWidth(), getY() + REASON_HEIGHT, background);
 
-        // bottom border line
-        context.fill(getX(), getY() + REASON_HEIGHT - 1, getX() + getWidth(), getY() + REASON_HEIGHT, HEADER_BORDER);
+        int btcolor = 0xFFFFFFFF; // normal
+        if (!this.active) btcolor = 0xFF808080;
+        else if (isHovered()) btcolor = 0xFFC0C0C0;
+
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), this.getX(), this.getY(), this.getWidth(), REASON_HEIGHT, btcolor);
 
         boolean headerHovered =
                 mouseX >= getX() && mouseX <= getX() + width &&
                         mouseY >= getY() && mouseY <= getY() + REASON_HEIGHT;
 
-        Identifier arrow =
-                open
+        Identifier arrow = open
                         ? (headerHovered ? ARROW_OPEN_HOVER : ARROW_OPEN)
                         : (headerHovered ? ARROW_CLOSED_HOVER : ARROW_CLOSED);
 
@@ -143,12 +142,10 @@ public class DialogueCategoryWidget extends ClickableWidget {
         String betterCategory= category.getName().substring(0,1).toUpperCase() + category.getName().substring(1).toLowerCase();
         context.drawText(title, Text.literal(betterCategory), getX() + 18, textY, HEADER_TEXT, false);
 
-
         // Count
         String count = "(" + entries.size() + ")";
         int countW = title.getWidth(count);
         context.drawText(title, Text.literal(count), getX() + getWidth() - countW - 6, textY, 0xAAAAAA, false);
-
 
         if (!open) return;
 

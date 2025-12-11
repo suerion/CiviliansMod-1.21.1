@@ -80,8 +80,11 @@ public class DialogueEntryWidget extends ClickableWidget {
     @Override
     public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
 
-        int background = isHovered() ? 0x55FFFFFF : 0x33000000;
-        context.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), background);
+        int btcolor = 0xFFFFFFFF;
+        if (!this.active) btcolor = 0xFF808080;
+        else if (isHovered()) btcolor = 0xFFC0C0C0;
+
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), getX(), getY(), getWidth(), getHeight(), btcolor);
 
         var renderer = MinecraftClient.getInstance().textRenderer;
 
@@ -100,7 +103,7 @@ public class DialogueEntryWidget extends ClickableWidget {
 
         int textY = getY() + (getHeight() - renderer.fontHeight) / 2;
 
-        context.drawTextWithShadow(renderer, trimmed, getX() + 4, textY, 0xFFFFFFFF);
+        context.drawText(renderer, trimmed, getX() + 4, textY, 0xFFFFFFFF, false);
 
         if (selectionMode) {
 
