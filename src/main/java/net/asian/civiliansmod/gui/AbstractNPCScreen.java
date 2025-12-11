@@ -176,7 +176,8 @@ public abstract class AbstractNPCScreen extends Screen {
         this.previousFollow = this.followState;
         this.previousBB = this.battleBuddyState;
 
-        this.selectedSkinIndex = npc.getSkinManager().getBaseVariant();
+        SkinIdentifier id = npc.getSkinManager().getIdSkin();
+        this.selectedSkinIndex = NPCUtil.getSkins().indexOf(id);
         previewNpcCache.clear();
         super.init();
 
@@ -195,7 +196,7 @@ public abstract class AbstractNPCScreen extends Screen {
 
         // center preview NPC
         if (this.client != null && this.client.world != null && this.previewNpc == null) {
-            this.previewNpc = this.createPreviewNPC(npc.getSkinManager().getBaseVariant());
+            this.previewNpc = this.createPreviewNPCFromNPC(npc);
         }
 
         // name field
@@ -751,13 +752,10 @@ public abstract class AbstractNPCScreen extends Screen {
 
     private void renderEntityPreview(DrawContext context, int mouseX, int mouseY) {
         if (this.previewNpc == null) {
-            this.previewNpc = getPreviewNPC(npc.getSkinManager().getBaseVariant());
+            this.previewNpc = createPreviewNPCFromNPC(npc);
         }
 
         NPCEntity preview = this.previewNpc;
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex >= 0 ? selectedSkinIndex : npc.getSkinManager().getBaseVariant()));
-
-        int variant = (selectedSkinIndex == -1)  ? npc.getSkinManager().getBaseVariant() : selectedSkinIndex;
 
         preview.setAiDisabled(true);
         preview.setSilent(true);
@@ -792,10 +790,53 @@ public abstract class AbstractNPCScreen extends Screen {
     private NPCEntity createPreviewNPC(int skinId) {
         World world = MinecraftClient.getInstance().world;
         NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
+
+        SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
+        preview.getSkinManager().setIdSkin(id);
+        preview.getSkinManager().setSlim(id.slim());
+
+        if (id.custom()) {
+            byte[] data = NPCUtil.images.get(id);
+            if (data != null) preview.getSkinManager().setSkinByteArray(data);
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
         preview.setAiDisabled(true);
         preview.setSilent(true);
         preview.setHeadYaw(0.0F);
+
+        return preview;
+    }
+
+    private NPCEntity createPreviewNPCFromNPC(NPCEntity npc) {
+        World world = MinecraftClient.getInstance().world;
+        NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
+
+        SkinIdentifier id = npc.getSkinManager().getIdSkin();
+
+        // Set identifier (Slim + Path)
+        preview.getSkinManager().setIdSkin(id);
+        preview.getSkinManager().setSlim(id.slim());
+
+        // Custom skin data must be re-applied manually
+        if (id.custom()) {
+            byte[] data = NPCUtil.images.get(id);
+            if (data != null) {
+                preview.getSkinManager().setSkinByteArray(data);
+            }
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+        preview.setHeadYaw(0.0F);
+
         return preview;
     }
 
@@ -807,7 +848,19 @@ public abstract class AbstractNPCScreen extends Screen {
         World world = MinecraftClient.getInstance().world;
         NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
-        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
+        SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
+        preview.getSkinManager().setIdSkin(id);
+        preview.getSkinManager().setSlim(id.slim());
+
+        if (id.custom()) {
+            byte[] data = NPCUtil.images.get(id);
+            if (data != null) preview.getSkinManager().setSkinByteArray(data);
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
         preview.setAiDisabled(true);
         preview.setSilent(true);
         preview.setHeadYaw(0.0F);
