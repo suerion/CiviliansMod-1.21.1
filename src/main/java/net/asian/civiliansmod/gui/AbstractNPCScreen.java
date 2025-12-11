@@ -755,6 +755,7 @@ public abstract class AbstractNPCScreen extends Screen {
         }
 
         NPCEntity preview = this.previewNpc;
+        preview.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex >= 0 ? selectedSkinIndex : npc.getSkinManager().getBaseVariant()));
 
         int variant = (selectedSkinIndex == -1)  ? npc.getSkinManager().getBaseVariant() : selectedSkinIndex;
 
