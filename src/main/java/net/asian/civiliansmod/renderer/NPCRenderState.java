@@ -40,6 +40,8 @@ public class NPCRenderState extends BipedEntityRenderState {
     public final ItemRenderState spyglassState = new ItemRenderState();
 
     public NPCRenderState() {
+        // Safe default so the renderer never receives a null texture.
+        this.texture = Identifier.of("minecraft", "textures/entity/steve.png");
     }
 
     public float getGlidingProgress() {

@@ -71,9 +71,15 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
 
-        livingEntityRenderState.slim = livingEntity.getSkinManager().isSlimModel();
-        Identifier newSkin = livingEntity.getSkinManager().getIdSkin().id();
-        livingEntityRenderState.texture = newSkin;
+        var skin = livingEntity.getSkinManager().getIdSkin();
+
+        if (skin != null && skin.id() != null) {
+            livingEntityRenderState.texture = skin.id();
+            livingEntityRenderState.slim = skin.slim();
+        } else {
+            livingEntityRenderState.texture = null;
+            livingEntityRenderState.slim = false;
+        }
 
         //adding animations
         // hit animation

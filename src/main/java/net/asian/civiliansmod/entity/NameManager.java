@@ -22,4 +22,13 @@ public class NameManager {
             this.npcEntity.setCustomName(Text.literal(defaultModelNames[Random.create().nextInt(defaultModelNames.length)]));
 
     }
+
+    public void setDeterministicName(boolean slim, long seed) {
+        Random r = Random.create(seed);
+        if (slim) {
+            this.npcEntity.setCustomName(Text.literal(slimModelNames[r.nextInt(slimModelNames.length)]));
+        } else {
+            this.npcEntity.setCustomName(Text.literal(defaultModelNames[r.nextInt(defaultModelNames.length)]));
+        }
+    }
 }

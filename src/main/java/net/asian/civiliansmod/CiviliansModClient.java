@@ -4,6 +4,7 @@ import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.networking.CustomS2CNetworking;
 import net.asian.civiliansmod.networking.PlayerLanguagePayload;
 import net.asian.civiliansmod.util.FolderUtil;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.custom_skins.SkinFolderManager;
 import net.asian.civiliansmod.entity.ModEntities;
 import net.asian.civiliansmod.util.NPCUtil;
@@ -52,10 +53,13 @@ public class CiviliansModClient implements ClientModInitializer {
         CustomS2CNetworking.intialize();
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            // Flashback (and similar mods) can change replay status at runtime.
+            ModCompat.resetRuntimeCaches();
             String lang = client.getLanguageManager().getLanguage();
             PacketByteBuf buf = PacketByteBufs.create();
             buf.writeString(lang);
             sender.sendPacket(new PlayerLanguagePayload(client.player.getUuid(), lang));
+            ModCompat.onClientJoinComplete();
         });
         CiviliansMod.LOGGER.info("[CiviliansMod] Model layers registered!");
     }

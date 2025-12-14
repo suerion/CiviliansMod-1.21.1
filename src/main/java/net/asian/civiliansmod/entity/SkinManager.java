@@ -8,6 +8,7 @@ import net.minecraft.util.Identifier;
 import net.minecraft.util.dynamic.Codecs;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -25,22 +26,20 @@ public class SkinManager {
     private boolean slim;
     private boolean defaultSkin;
 
+    // Used to ensure we do not spam sync packets for the same entity.
+    public boolean skinSynced;
+
     private final NPCEntity npcEntity;
 
     public SkinManager(NPCEntity npcEntity) {
         this.npcEntity = npcEntity;
         this.defaultSkin = true;
 
-        // random basevariant
-        this.baseVariant = npcEntity.getRandom().nextInt(88);
-        this.slim = this.baseVariant > 43;
-
-        // random name
-        if (npcEntity.nameManager != null) {
-            npcEntity.nameManager.setRandomName(this.slim);
-        } else {
-            CiviliansMod.LOGGER.warn("[CiviliansMod] nameManager is null in SkinManager constructor");
-        }
+        // Important for replay mods (e.g. Flashback): do NOT assign random skins here.
+        // Server-side default skin assignment is handled once in NPCEntity when appropriate.
+        this.baseVariant = -1;
+        this.slim = false;
+        this.skinSynced = false;
     }
 
     public boolean isSlim() {
@@ -63,16 +62,33 @@ public class SkinManager {
         }
     }
 
-    @Environment(EnvType.CLIENT)
     public void setIdSkin(SkinIdentifier skin) {
         this.skinIdentifier = skin;
     }
 
-    @Environment(EnvType.CLIENT)
     public SkinIdentifier getIdSkin() {
-        if (this.skinIdentifier == null) {
-            return NPCUtil.getNPCTexture(baseVariant);
+        if (this.skinIdentifier != null) {
+            return this.skinIdentifier;
         }
+
+        // If baseVariant was never assigned, do not fall back to 0 (causes replay instability).
+        if (this.baseVariant < 0) {
+            if (ModCompat.isInReplayJoinPhase()) {
+                return null;
+            }
+            // In replay contexts there is no server sync; use a deterministic, read-only fallback.
+            if (ModCompat.isInReplay() && !NPCUtil.getSkins().isEmpty()) {
+                long seed = npcEntity.getUuid().getLeastSignificantBits() ^ npcEntity.getUuid().getMostSignificantBits();
+                int idx = (int) Math.floorMod(seed, NPCUtil.getSkins().size());
+                return NPCUtil.getNPCTexture(idx);
+            }
+            return null;
+        }
+
+        return NPCUtil.getNPCTexture(baseVariant);
+    }
+
+    public SkinIdentifier getSkinIdentifier() {
         return this.skinIdentifier;
     }
 
@@ -104,7 +120,7 @@ public class SkinManager {
     }
 
     void readNbt(ReadView readView) {
-        this.baseVariant = readView.getInt("basevariant", 0);
+        this.baseVariant = readView.getInt("basevariant", -1);
         this.slim = readView.getBoolean("slim", this.baseVariant > 43);
         this.defaultSkin = readView.getBoolean("defaultSkin", true);
 

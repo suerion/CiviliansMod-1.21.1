@@ -10,6 +10,7 @@ import net.asian.civiliansmod.networking.payload.npc.dialogue.OpenScreenDialogue
 import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.util.SkinIdentifier;
 
 import net.fabricmc.api.EnvType;
@@ -107,6 +108,24 @@ public class NPCEntity extends PathAwareEntity {
         if (!this.getWorld().isClient) {
             this.setCustomNameVisible(true);
             this.sent = new HashSet<>();
+
+            // Assign a deterministic default skin once (never in replay contexts).
+            if (ModCompat.isRealServerWorld(world)
+                    && this.skinManager.getBaseVariant() < 0
+                    && this.skinManager.getSkinIdentifier() == null
+                    && !this.hasCustomName()) {
+
+                // Keep legacy behaviour: 0..87 with slim threshold at 44.
+                long seed = this.getUuid().getLeastSignificantBits() ^ this.getUuid().getMostSignificantBits();
+                Random seededRandom = Random.create(seed);
+
+                int max = 88;
+                this.skinManager.setBaseVariant(seededRandom.nextInt(max));
+                this.skinManager.setSlim(this.skinManager.getBaseVariant() > 43);
+
+                // Deterministic name (avoids replay re-randomization).
+                this.nameManager.setDeterministicName(this.skinManager.isSlimModel(), seed);
+            }
         } else {
             this.dialoguesReceived = false;
         }
@@ -502,6 +521,11 @@ public class NPCEntity extends PathAwareEntity {
 
         SkinIdentifier skinId = this.getSkinManager().getIdSkin();
 
+        if (skinId == null) {
+            // No skin data available (e.g. replay context). Do not attempt to open a skin-specific screen.
+            return;
+        }
+
         if (skinId.custom()) {
               client.setScreen(new CustomNPCScreen(this));
         } else if (skinId.slim()) {
@@ -542,7 +566,7 @@ public class NPCEntity extends PathAwareEntity {
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
         if (this.getWorld().isClient) {
-            SkinIdentifier skinIdentifier = NPCUtil.waitingSync.get(this.getId());
+            SkinIdentifier skinIdentifier = NPCUtil.waitingSync.remove(this.getId());
             if (skinIdentifier != null) {
                 this.skinManager.setIdSkin(skinIdentifier);
                 if (skinIdentifier.custom()) {
@@ -567,18 +591,30 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
-        if (!this.getWorld().isClient) {
+        // Flashback (replay) must not receive network sync packets.
+        if (ModCompat.isInReplay()) {
+            return super.createSpawnPacket(entityTrackerEntry);
+        }
+
+        if (!this.getWorld().isClient && !this.skinManager.skinSynced) {
+            SkinIdentifier skin = this.skinManager.getIdSkin();
+
+            // If we have no skin information yet, do not sync anything.
+            if (skin == null && this.skinManager.getSkinByteArray() == null) {
+                return super.createSpawnPacket(entityTrackerEntry);
+            }
+
+            this.skinManager.skinSynced = true;
+
             // Custom Skin
             if (this.skinManager.getSkinByteArray() != null) {
                 for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.isSlimModel(), this.skinManager.getSkinByteArray()));
                 }
-            } else {
-                // DEFAULT Skin
-                SkinIdentifier skinId = this.skinManager.getIdSkin();
-
+            } else if (skin != null && skin.id() != null) {
+                // Default Skin
                 for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
-                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skinId.id(), skinId.slim()));
+                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skin.id(), skin.slim()));
                 }
             }
         }
