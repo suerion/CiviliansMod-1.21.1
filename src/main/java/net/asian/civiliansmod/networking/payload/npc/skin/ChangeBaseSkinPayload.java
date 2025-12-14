@@ -2,6 +2,8 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -31,11 +33,17 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
     public void handlePacket(ServerPlayNetworking.Context context) {
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
-        entity.getSkinManager().setBaseVariant(this.baseVariant);
+
+        SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
+
+        entity.getSkinManager().applySkin(skin);
+
         for (ServerPlayerEntity player : world.getPlayers()) {
             if (player.getUuid().equals(context.player().getUuid())) continue;
-
-            ServerPlayNetworking.send(player, new SyncSkinPayload(entity.getId(),baseVariant));
+            ServerPlayNetworking.send(
+                    player,
+                    new SyncSkinPayload(entity.getId(), skin.id(), skin.slim())
+            );
         }
     }
 }

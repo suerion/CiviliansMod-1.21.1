@@ -5,6 +5,7 @@ import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
 import net.asian.civiliansmod.networking.NPCDataPayload;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
@@ -257,7 +258,10 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     public void close() {
         if (MinecraftClient.getInstance().player != null) {
             if (!save) {
-                npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(this.defaultSkin));
+                SkinIdentifier skin = NPCUtil.getNPCTexture(this.defaultSkin);
+                npc.getSkinManager().applySkin(skin);
+                npc.getSkinManager().setBaseVariant(this.defaultSkin);
+
                 npc.setFollowing(follow);
                 npc.setPaused(stay);
                 super.close();
@@ -272,16 +276,14 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
             );
             ClientPlayNetworking.send(payload); // Send data to the server
 
+            if (selectedVariantIndex != -1) {
+                ChangeBaseSkinPayload basePayload = new ChangeBaseSkinPayload(npc.getUuid(), selectedVariantIndex);
+                ClientPlayNetworking.send(basePayload);
+            }
+
             if (npc.getSkinManager().getIdSkin().custom()) {
-                ChangeSkinPayload payload1 = new ChangeSkinPayload(npc.getUuid(), npc.getSkinManager().getIdSkin().slim(), npc.getSkinManager().getIdSkin());
-                ClientPlayNetworking.send(payload1); // Send data to the server
-            } else {
-                if (selectedVariantIndex == -1) {
-                    super.close();
-                    return;
-                }
-                ChangeBaseSkinPayload payload1 = new ChangeBaseSkinPayload(npc.getUuid(), selectedVariantIndex);
-                ClientPlayNetworking.send(payload1);
+                ChangeSkinPayload customPayload = new ChangeSkinPayload(npc.getUuid(), npc.getSkinManager().getIdSkin().slim(), npc.getSkinManager().getIdSkin());
+                ClientPlayNetworking.send(customPayload);
             }
         }
 
@@ -331,15 +333,12 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                 this.selectedVariant = clickedVariant;
                 if (clickedVariant < toRender.size())
                     this.selectedVariantIndex = toRender.get(clickedVariant);
-                this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex)); // Update NPC variant immediately
 
-                if (!NPCUtil.getNPCTexture(clickedVariant).custom())
-                    this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
-
-                npc.writeCustomDataToNbt(npc.writeNbt(new NbtCompound())); // Save changes to ensure they persist
+                SkinIdentifier skin = NPCUtil.getNPCTexture(selectedVariantIndex);
+                this.npc.getSkinManager().applySkin(skin);
+                this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
             }
         }
-
         return super.mouseClicked(mouseX, mouseY, button);
     }
 

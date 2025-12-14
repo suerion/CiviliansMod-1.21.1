@@ -1,7 +1,9 @@
 package net.asian.civiliansmod.renderer;
 
+import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
+import net.asian.civiliansmod.util.NPCUtil;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -58,14 +60,25 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
      * Dynamically assigns the appropriate texture based on the NPC's variant.
      */
     @Override
-    public Identifier getTexture(NPCRenderState livingEntityRenderState) {
-        return livingEntityRenderState.texture;
+    public Identifier getTexture(NPCRenderState state) {
+        return state.texture;
     }
 
     @Override
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
-        livingEntityRenderState.texture = livingEntity.getSkinManager().getIdSkin().id();
-        livingEntityRenderState.slim = livingEntity.getSkinManager().getIdSkin().slim();
+
+        var skin = livingEntity.getSkinManager().getIdSkin();
+
+        if (skin == null) {
+            return;
+        }
+        Identifier id = skin.id();
+        if (skin == null || skin.id() == null) {
+            return;
+        }
+
+        livingEntityRenderState.texture = id;
+        livingEntityRenderState.slim = skin.slim();
     }
 }

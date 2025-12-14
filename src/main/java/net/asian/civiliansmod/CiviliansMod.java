@@ -24,6 +24,27 @@ public class CiviliansMod implements ModInitializer {
 
     public static Map<UUID, String> playerLanguages = new HashMap<>();
 
+    private static Boolean flashbackReplay = null;
+
+    public static boolean isFlashbackReplay() {
+        if (flashbackReplay != null) {
+            return flashbackReplay;
+        }
+
+        try {
+            Class<?> flashbackClass = Class.forName("com.moulberry.flashback.Flashback");
+            Object result = flashbackClass.getMethod("isInReplay").invoke(null);
+            flashbackReplay = result instanceof Boolean && (Boolean) result;
+        } catch (Throwable t) {
+            flashbackReplay = false;
+        }
+
+        return flashbackReplay;
+    }
+
+    public static void resetFlashbackCache() {
+        flashbackReplay = null;
+    }
   
     @Override
     public void onInitialize() {

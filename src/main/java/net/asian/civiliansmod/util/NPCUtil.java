@@ -36,6 +36,21 @@ public class NPCUtil {
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
 
     public static boolean isSlim(int index) {
+        if (skins.isEmpty()) {
+            CiviliansMod.LOGGER.debug(
+                    "[CiviliansMod] isSlim called but skins not loaded yet, defaulting to wide"
+            );
+            return false;
+        }
+
+        if (index < 0 || index >= skins.size()) {
+            CiviliansMod.LOGGER.warn(
+                    "[CiviliansMod] isSlim called with invalid index {} (skins.size={}), defaulting to wide",
+                    index, skins.size()
+            );
+            return false;
+        }
+
         return skins.get(index).slim();
     }
 
@@ -97,6 +112,19 @@ public class NPCUtil {
 
         registerDefaultCustomSkins();
         registerSlimCustomSkins();
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.world == null) return;
+
+        for (var entity : client.world.getEntities()) {
+            if (entity instanceof net.asian.civiliansmod.entity.NPCEntity npc) {
+                SkinIdentifier skin = npc.getSkinManager().getIdSkin();
+                if (skin != null) {
+                    waitingSync.put(npc.getId(), skin);
+                }
+            }
+        }
+
+        CiviliansMod.LOGGER.info("[CiviliansMod] Re-synced NPC skins after texture refresh");
     }
 
 
@@ -139,8 +167,5 @@ public class NPCUtil {
     }
 
     public static void registerSkin(){
-
     }
-
-
 }

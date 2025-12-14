@@ -14,6 +14,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.asian.civiliansmod.renderer.NPCRenderer;
 import net.asian.civiliansmod.model.NPCModel;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
 import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
@@ -21,7 +22,6 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.util.Identifier;
 
 public class CiviliansModClient implements ClientModInitializer {
-
 
     public static final EntityModelLayer WIDE_ENTITY_MODEL_LAYER =
             new EntityModelLayer(Identifier.of("civiliansmod", "npc_default"), "main");
@@ -31,24 +31,6 @@ public class CiviliansModClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // flashback compat
-        try {
-            // is flashback loaded?
-            Class<?> flashbackClass = Class.forName("com.moulberry.flashback.Flashback");
-            Object result = flashbackClass.getMethod("isInReplay").invoke(null);
-
-            if (result instanceof Boolean && (Boolean) result) {
-                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected — initializing skins manually.");
-                FolderUtil.init();
-                SkinFolderManager.register();
-                NPCUtil.refreshTextures();
-            }
-        } catch (ClassNotFoundException e) {
-            // flashback is not given
-        } catch (Throwable t) {
-            CiviliansMod.LOGGER.warn("[CiviliansMod] Could not check Flashback replay state safely", t);
-        }
-
         SkinFolderManager.register();
 
         EntityRendererRegistry.register(ModEntities.NPC_ENTITY, NPCRenderer::new);
@@ -70,10 +52,48 @@ public class CiviliansModClient implements ClientModInitializer {
         CustomS2CNetworking.intialize();
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+
+            CiviliansMod.LOGGER.info("[CiviliansMod] JOIN event fired");
+            CiviliansMod.resetFlashbackCache();
+
+            try {
+                Class.forName("com.moulberry.flashback.Flashback");
+                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback class FOUND");
+            } catch (ClassNotFoundException e) {
+                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback class NOT found");
+            }
+
             String lang = client.getLanguageManager().getLanguage();
             PacketByteBuf buf = PacketByteBufs.create();
             buf.writeString(lang);
             sender.sendPacket(new PlayerLanguagePayload(client.player.getUuid(), lang));
+
+            boolean isFlashbackReplay = false;
+
+            try {
+                Class<?> flashbackClass = Class.forName("com.moulberry.flashback.Flashback");
+                Object result = flashbackClass.getMethod("isInReplay").invoke(null);
+                isFlashbackReplay = result instanceof Boolean && (Boolean) result;
+            } catch (ClassNotFoundException ignored) {
+                // Flashback nicht installiert
+            } catch (Throwable t) {
+                CiviliansMod.LOGGER.warn("[CiviliansMod] Flashback check failed", t);
+            }
+
+            if (isFlashbackReplay) {
+                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected (JOIN)");
+                FolderUtil.init();
+                SkinFolderManager.register();
+                MinecraftClient.getInstance().execute(() -> {
+                    CiviliansMod.LOGGER.info("[CiviliansMod] Delayed skin refresh for Flashback replay");
+                    NPCUtil.refreshTextures();
+                });
+            } else {
+                CiviliansMod.LOGGER.info("[CiviliansMod] Normal client join");
+                FolderUtil.init();
+                NPCUtil.refreshTextures();
+            }
+            NpcChat.registerChat();
         });
         CiviliansMod.LOGGER.info("[CiviliansMod] Model layers registered!");
     }
