@@ -257,6 +257,15 @@ public class NPCEntity extends PathAwareEntity {
 
         // loadSKIN
         this.skinManager.readNbt(readView);
+        if (this.skinManager.getSkinIdentifier() == null
+                && this.skinManager.getBaseVariant() >= 0
+                && !NPCUtil.getSkins().isEmpty()) {
+
+            SkinIdentifier skin =
+                    NPCUtil.getNPCTexture(this.skinManager.getBaseVariant());
+
+            this.skinManager.setIdSkin(skin);
+        }
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);

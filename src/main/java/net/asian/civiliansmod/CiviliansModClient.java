@@ -1,6 +1,7 @@
 package net.asian.civiliansmod;
 
 import net.asian.civiliansmod.chat.NpcChat;
+import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.networking.CustomS2CNetworking;
 import net.asian.civiliansmod.networking.PlayerLanguagePayload;
 import net.asian.civiliansmod.util.FolderUtil;
@@ -15,6 +16,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.asian.civiliansmod.renderer.NPCRenderer;
 import net.asian.civiliansmod.model.NPCModel;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
 import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
@@ -45,8 +47,20 @@ public class CiviliansModClient implements ClientModInitializer {
         //we gather the textures when a client joins a server.
         ClientPlayConnectionEvents.INIT.register((phase, listener) -> {
             FolderUtil.init();
-
             NPCUtil.refreshTextures();
+            if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().world != null) {
+                var world = MinecraftClient.getInstance().world;
+
+                for (var entity : world.getEntities()) {
+                    if (entity instanceof NPCEntity npc) {
+                        var sm = npc.getSkinManager();
+
+                        if (sm.getSkinIdentifier() == null && sm.getBaseVariant() >= 0 && !NPCUtil.getSkins().isEmpty()) {
+                            sm.setIdSkin(NPCUtil.getNPCTexture(sm.getBaseVariant()));
+                        }
+                    }
+                }
+            }
             NpcChat.registerChat();
         });
 

@@ -71,21 +71,17 @@ public class SkinManager {
             return this.skinIdentifier;
         }
 
-        // If baseVariant was never assigned, do not fall back to 0 (causes replay instability).
-        if (this.baseVariant < 0) {
-            if (ModCompat.isInReplayJoinPhase()) {
-                return null;
-            }
-            // In replay contexts there is no server sync; use a deterministic, read-only fallback.
-            if (ModCompat.isInReplay() && !NPCUtil.getSkins().isEmpty()) {
-                long seed = npcEntity.getUuid().getLeastSignificantBits() ^ npcEntity.getUuid().getMostSignificantBits();
-                int idx = (int) Math.floorMod(seed, NPCUtil.getSkins().size());
-                return NPCUtil.getNPCTexture(idx);
-            }
+        if (NPCUtil.getSkins().isEmpty()) {
             return null;
         }
 
-        return NPCUtil.getNPCTexture(baseVariant);
+        if (this.baseVariant >= 0) {
+            SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
+            if (skin != null) {
+                return skin;
+            }
+        }
+        return NPCUtil.getNPCTexture(0);
     }
 
     public SkinIdentifier getSkinIdentifier() {

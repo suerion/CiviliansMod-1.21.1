@@ -3,6 +3,7 @@ package net.asian.civiliansmod.renderer;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
+import net.asian.civiliansmod.util.NPCUtil;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -77,8 +78,13 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
             livingEntityRenderState.texture = skin.id();
             livingEntityRenderState.slim = skin.slim();
         } else {
-            livingEntityRenderState.texture = null;
-            livingEntityRenderState.slim = false;
+            // Safe fallback: use deterministic default skin (no state mutation)
+            var fallback = NPCUtil.getNPCTexture(0);
+
+            if (fallback != null && fallback.id() != null) {
+                livingEntityRenderState.texture = fallback.id();
+                livingEntityRenderState.slim = fallback.slim();
+            }
         }
 
         //adding animations
