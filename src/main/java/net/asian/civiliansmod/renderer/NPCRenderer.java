@@ -8,6 +8,7 @@ import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
+import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -61,24 +62,34 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
      */
     @Override
     public Identifier getTexture(NPCRenderState state) {
-        return state.texture;
+        return state.texture != null
+                ? state.texture
+                : DefaultSkinHelper.getTexture();
     }
 
     @Override
-    public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
-        super.updateRenderState(livingEntity, livingEntityRenderState, f);
+    public void updateRenderState(NPCEntity livingEntity, NPCRenderState state, float f) {
+        super.updateRenderState(livingEntity, state, f);
 
+        // use primary npc skin
         var skin = livingEntity.getSkinManager().getIdSkin();
-
-        if (skin == null) {
-            return;
-        }
-        Identifier id = skin.id();
-        if (skin == null || skin.id() == null) {
+        if (skin != null && skin.id() != null) {
+            state.texture = skin.id();
+            state.slim = skin.slim();
             return;
         }
 
-        livingEntityRenderState.texture = id;
-        livingEntityRenderState.slim = skin.slim();
+        // mod fallback!
+        var modFallback = NPCUtil.getNPCTexture(0);
+        if (modFallback != null && modFallback.id() != null) {
+            state.texture = modFallback.id();
+            state.slim = modFallback.slim();
+            return;
+        }
+
+        //last fallback, go back to vanilla
+        var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
+        state.texture = vanilla.texture();
+        state.slim = vanilla.model() == net.minecraft.client.util.SkinTextures.Model.SLIM;
     }
 }
