@@ -11,6 +11,7 @@ import net.minecraft.client.render.entity.feature.HeldItemFeatureRenderer;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.render.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
+import net.minecraft.client.util.DefaultSkinHelper;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -72,51 +73,47 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
 
-        var skin = livingEntity.getSkinManager().getIdSkin();
+        boolean resolved = false;
 
+        var skin = livingEntity.getSkinManager().getIdSkin();
         if (skin != null && skin.id() != null) {
             livingEntityRenderState.texture = skin.id();
             livingEntityRenderState.slim = skin.slim();
-        } else {
-            // Safe fallback: use deterministic default skin (no state mutation)
-            var fallback = NPCUtil.getNPCTexture(0);
+            resolved = true;
+        }
 
-            if (fallback != null && fallback.id() != null) {
-                livingEntityRenderState.texture = fallback.id();
-                livingEntityRenderState.slim = fallback.slim();
+        if (!resolved) {
+            var modFallback = NPCUtil.getNPCTexture(0);
+            if (modFallback != null && modFallback.id() != null) {
+                livingEntityRenderState.texture = modFallback.id();
+                livingEntityRenderState.slim = modFallback.slim();
+                resolved = true;
             }
         }
 
-        //adding animations
-        // hit animation
+        if (!resolved) {
+            var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
+            livingEntityRenderState.texture = vanilla.texture();
+            livingEntityRenderState.slim =
+                    vanilla.model() == net.minecraft.client.util.SkinTextures.Model.SLIM;
+        }
+
         livingEntityRenderState.handSwingProgress = livingEntity.getHandSwingProgress(f);
-
-        // run animation
         livingEntityRenderState.limbSwingAnimationProgress = livingEntity.limbAnimator.getAnimationProgress(f);
-        livingEntityRenderState.limbSwingAmplitude        = livingEntity.limbAnimator.getAmplitude(f);
+        livingEntityRenderState.limbSwingAmplitude = livingEntity.limbAnimator.getAmplitude(f);
 
-        //item use animatione
         livingEntityRenderState.isUsingItem  = livingEntity.isUsingItem();
         livingEntityRenderState.itemUseTime  = livingEntity.getItemUseTime();
         livingEntityRenderState.activeHand   = livingEntity.getActiveHand();
         livingEntityRenderState.preferredArm = livingEntity.getMainArm();
 
-        //sneaking and swimming
         livingEntityRenderState.isInSneakingPose = livingEntity.isInSneakingPose();
         livingEntityRenderState.isSwimming       = livingEntity.isSwimming();
 
         ArmedEntityRenderState.updateRenderState(livingEntity, livingEntityRenderState, this.itemModelResolver);
 
         if (CiviliansMod.DEBUG_RENDER) {
-            CiviliansMod.LOGGER.info(
-                    "[NPC/RenderState] id={} slim={} texture={} swing={} mainHandItem={} offHandItem={}",
-                    livingEntity.getId(),
-                    livingEntityRenderState.slim,
-                    livingEntityRenderState.texture,
-                    livingEntityRenderState.handSwingProgress,
-                    livingEntityRenderState.getMainHandItemState(),
-                    livingEntityRenderState.leftHandItemState
-            );
+            CiviliansMod.LOGGER.info("[NPC/RenderState] id={} slim={} texture={}", livingEntity.getId(), livingEntityRenderState.slim, livingEntityRenderState.texture);
         }
     }
 }
