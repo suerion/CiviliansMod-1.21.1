@@ -44,7 +44,7 @@ public class CiviliansModClient implements ClientModInitializer {
         //we gather the textures when a client joins a server.
         ClientPlayConnectionEvents.INIT.register((phase, listener) -> {
             FolderUtil.init();
-
+            SkinFolderManager.register();
             NPCUtil.refreshTextures();
             NpcChat.registerChat();
         });
@@ -75,7 +75,6 @@ public class CiviliansModClient implements ClientModInitializer {
                 Object result = flashbackClass.getMethod("isInReplay").invoke(null);
                 isFlashbackReplay = result instanceof Boolean && (Boolean) result;
             } catch (ClassNotFoundException ignored) {
-                // Flashback nicht installiert
             } catch (Throwable t) {
                 CiviliansMod.LOGGER.warn("[CiviliansMod] Flashback check failed", t);
             }

@@ -4,11 +4,13 @@ import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.util.DefaultSkinHelper;
+import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -68,28 +70,49 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     }
 
     @Override
-    public void updateRenderState(NPCEntity livingEntity, NPCRenderState state, float f) {
-        super.updateRenderState(livingEntity, state, f);
+    public void updateRenderState(NPCEntity livingEntity, NPCRenderState state, float tickDelta) {
 
-        // use primary npc skin
-        var skin = livingEntity.getSkinManager().getIdSkin();
+        // 🔒 FLASHBACK = IMMER DEFAULT
+        if (CiviliansMod.isFlashbackReplay()) {
+            var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
+            state.texture = vanilla.texture();
+            state.slim = vanilla.model() == SkinTextures.Model.SLIM;
+            return;
+        }
+
+        // ⬇️ NORMALER SPIELBETRIEB
+        super.updateRenderState(livingEntity, state, tickDelta);
+
+        // 1️⃣ DataTracker hat Vorrang
+        int trackedVariant = livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
+        if (trackedVariant >= 0) {
+            SkinIdentifier skin = NPCUtil.getNPCTexture(trackedVariant);
+            if (skin != null) {
+                state.texture = skin.id();
+                state.slim = skin.slim();
+                return;
+            }
+        }
+
+        // 2️⃣ SkinManager (Custom / gesetzt)
+        SkinIdentifier skin = livingEntity.getSkinManager().getIdSkin();
         if (skin != null && skin.id() != null) {
             state.texture = skin.id();
             state.slim = skin.slim();
             return;
         }
 
-        // mod fallback!
-        var modFallback = NPCUtil.getNPCTexture(0);
-        if (modFallback != null && modFallback.id() != null) {
-            state.texture = modFallback.id();
-            state.slim = modFallback.slim();
+        // 3️⃣ Mod-Fallback
+        SkinIdentifier fallback = NPCUtil.getNPCTexture(0);
+        if (fallback != null) {
+            state.texture = fallback.id();
+            state.slim = fallback.slim();
             return;
         }
 
-        //last fallback, go back to vanilla
+        // 4️⃣ Vanilla als letzter Notfall
         var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
         state.texture = vanilla.texture();
-        state.slim = vanilla.model() == net.minecraft.client.util.SkinTextures.Model.SLIM;
+        state.slim = vanilla.model() == SkinTextures.Model.SLIM;
     }
 }

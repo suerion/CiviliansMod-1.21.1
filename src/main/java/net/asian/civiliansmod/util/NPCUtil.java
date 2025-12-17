@@ -168,4 +168,24 @@ public class NPCUtil {
 
     public static void registerSkin(){
     }
+
+    @Environment(EnvType.CLIENT)
+    public static void registerCustomSkinFromBytes(SkinIdentifier skin, byte[] skinBytes) {
+        try {
+            NativeImage image = NativeImage.read(skinBytes);
+
+            String textureName = skin.id().getPath();
+            NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> textureName, image);
+
+            MinecraftClient.getInstance().getTextureManager().registerTexture(skin.id(), texture);
+
+            images.put(skin, skinBytes);
+            if (!skins.contains(skin)) {
+                skins.add(skin);
+            }
+
+        } catch (IOException e) {
+            CiviliansMod.LOGGER.error("Failed to re-register NPC skin {}", skin.id(), e);
+        }
+    }
 }
