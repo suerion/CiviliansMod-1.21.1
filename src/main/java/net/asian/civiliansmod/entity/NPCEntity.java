@@ -137,9 +137,10 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
-        if (CiviliansMod.isFlashbackReplay()) {
-            return super.createSpawnPacket(entityTrackerEntry);
+        if (!this.getWorld().isClient && this.skinManager.baseVariant >= 0) {
+            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
         }
+
         if (!this.skinManager.skinSynced) {
             SkinIdentifier skin = this.skinManager.getIdSkin();
 
@@ -174,34 +175,6 @@ public class NPCEntity extends PathAwareEntity {
                 this.skinManager.baseVariant,
                 this.skinManager.skinIdentifier
         );
-/*
-        if (!world.isClient && this.skinManager.baseVariant < 0 && this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0) {
-            int max = NPCUtil.getSkins().isEmpty() ? 1 : NPCUtil.getSkins().size();
-            long seed = this.getUuid().getLeastSignificantBits() ^ this.getUuid().getMostSignificantBits();
-            Random seededRandom = Random.create(seed);
-            this.skinManager.baseVariant = seededRandom.nextInt(max);
-            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
-
-            CiviliansMod.LOGGER.info(
-                    "[NPC/CTOR:ASSIGNED_BASEVARIANT] id={} baseVariant={} skinId={}",
-                    this.getId(),
-                    this.skinManager.baseVariant,
-                    this.skinManager.skinIdentifier
-            );
-
-            if (!NPCUtil.getSkins().isEmpty()) {
-                SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
-                this.skinManager.skinIdentifier = skin;
-                this.skinManager.slim = skin.slim();
-                this.skinManager.defaultSkin = false;
-            }
-            CiviliansMod.LOGGER.info(
-                    "[NPC/CTOR:ASSIGNED_SKINIDENTIFIER] id={} baseVariant={} skinId={}",
-                    this.getId(),
-                    this.skinManager.baseVariant,
-                    this.skinManager.skinIdentifier
-            );
-        }*/
 
         if (this.getCustomName() == null) {
             this.nameManager.setRandomName(this.skinManager.slim);
@@ -277,21 +250,25 @@ public class NPCEntity extends PathAwareEntity {
             SkinIdentifier skin = this.skinManager.skinIdentifier;
 
             CiviliansMod.LOGGER.info(
-                    "[NPC/FLASHBACK/NBT] id={} skin={} base={} hasBytes={}",
+                    "[FLASHBACK/SKIN/APPLY] id={} skin={} baseVariant={} hasBytes={}",
                     this.getId(),
                     skin,
                     this.skinManager.baseVariant,
                     this.skinManager.skinByteArray != null
             );
 
-            if (skin != null && skin.custom() && this.skinManager.skinByteArray != null) {
-                NPCUtil.registerCustomSkinFromBytes(skin, this.skinManager.skinByteArray);
+            // 1️⃣ Fallback: Skin aus baseVariant holen, falls ID fehlt
+            if (skin == null && this.skinManager.baseVariant >= 0) {
+                skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
+
+                CiviliansMod.LOGGER.info(
+                        "[FLASHBACK/SKIN/FALLBACK] id={} resolvedSkinFromVariant={}",
+                        this.getId(),
+                        skin
+                );
             }
-        }
 
-        if (this.getWorld().isClient && CiviliansMod.isFlashbackReplay()) {
-            SkinIdentifier skin = this.skinManager.skinIdentifier;
-
+            // 2️⃣ Custom Skin registrieren (WICHTIG: VOR apply)
             if (skin != null && skin.custom() && this.skinManager.skinByteArray != null) {
                 NPCUtil.registerCustomSkinFromBytes(
                         skin,
@@ -299,50 +276,32 @@ public class NPCEntity extends PathAwareEntity {
                 );
 
                 CiviliansMod.LOGGER.info(
-                        "[NPC/FLASHBACK] Re-registered custom skin {} for NPC {}",
-                        skin.id(),
+                        "[FLASHBACK/SKIN/REGISTERED] id={} skin={}",
+                        this.getId(),
+                        skin.id()
+                );
+            }
+
+            // 3️⃣ Skin endgültig anwenden (VOR erstem Render!)
+            if (skin != null) {
+                this.skinManager.setIdSkin(skin);
+                this.skinManager.setSlim(skin.slim());
+                this.skinManager.defaultSkin = false;
+
+                CiviliansMod.LOGGER.info(
+                        "[FLASHBACK/SKIN/APPLIED] id={} skin={}",
+                        this.getId(),
+                        skin
+                );
+            } else {
+                CiviliansMod.LOGGER.warn(
+                        "[FLASHBACK/SKIN/MISSING] id={} → FALLING BACK TO VANILLA",
                         this.getId()
                 );
             }
         }
 
-        if (CiviliansMod.isFlashbackReplay() && this.getWorld().isClient) {
-
-            // 1. explizit gespeicherter Skin
-            if (this.skinManager.skinIdentifier != null) {
-                this.skinManager.defaultSkin = false;
-
-                if (this.skinManager.baseVariant >= 0) {
-                    this.getDataTracker().set(
-                            TRACKED_SKIN_VARIANT,
-                            this.skinManager.baseVariant
-                    );
-                }
-                return;
-            }
-
-            // 2. gespeicherter baseVariant
-            if (this.skinManager.baseVariant >= 0) {
-                SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
-                if (skin != null) {
-                    this.skinManager.setIdSkin(skin);
-                    this.skinManager.setSlim(skin.slim());
-                    this.skinManager.defaultSkin = false;
-
-                    // ⭐ DAS FEHLTE
-                    this.getDataTracker().set(
-                            TRACKED_SKIN_VARIANT,
-                            this.skinManager.baseVariant
-                    );
-                }
-                return;
-            }
-
-            return;
-        }
-
-
-        if (this.getWorld().isClient) {
+        if (this.getWorld().isClient && !CiviliansMod.isFlashbackReplay()) {
             SkinIdentifier skin = this.skinManager.skinIdentifier;
             if (skin != null && skin.custom()) {
                 NPCUtil.waitingSync.put(this.getId(), skin);
@@ -359,13 +318,44 @@ public class NPCEntity extends PathAwareEntity {
         if (nbt.contains("dialogues")) {
             this.chatManager.setFromNbt(nbt.getCompound("dialogues"));
         }
-        if (!this.getWorld().isClient) {
-            if (this.skinManager.skinIdentifier == null && this.skinManager.skinByteArray == null) {
+
+        if (!this.getWorld().isClient && !CiviliansMod.isFlashbackReplay()) {
+
+            if (this.skinManager.skinIdentifier == null
+                    && this.skinManager.skinByteArray == null
+                    && this.skinManager.baseVariant < 0) {
 
                 int max = NPCUtil.getSkins().isEmpty() ? 1 : NPCUtil.getSkins().size();
-                int variant = (int) (Math.abs(this.getUuid().getMostSignificantBits()) % max);
+                long seed = this.getUuid().getLeastSignificantBits() ^ this.getUuid().getMostSignificantBits();
+                Random seededRandom = Random.create(seed);
+
+                int variant = seededRandom.nextInt(max);
                 SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
-                this.skinManager.applySkin(skin);
+
+                if (skin != null) {
+                    this.skinManager.applySkin(skin);
+                }
+            }
+        }
+
+        if (!this.getWorld().isClient) {
+
+            if (this.skinManager.baseVariant < 0) {
+
+                SkinIdentifier skin = this.skinManager.getIdSkin();
+                if (skin != null) {
+                    int idx = NPCUtil.getSkins().indexOf(skin);
+                    if (idx >= 0) {
+                        this.skinManager.baseVariant = idx;
+                        this.getDataTracker().set(TRACKED_SKIN_VARIANT, idx);
+
+                        CiviliansMod.LOGGER.info(
+                                "[NPC/SKIN-FREEZE] id={} frozenVariant={}",
+                                this.getId(),
+                                idx
+                        );
+                    }
+                }
             }
         }
     }

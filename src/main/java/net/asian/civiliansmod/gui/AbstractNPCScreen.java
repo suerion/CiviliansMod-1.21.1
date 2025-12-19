@@ -258,10 +258,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
     public void close() {
         if (MinecraftClient.getInstance().player != null) {
             if (!save) {
-                SkinIdentifier skin = NPCUtil.getNPCTexture(this.defaultSkin);
-                npc.getSkinManager().applySkin(skin);
-                npc.getSkinManager().setBaseVariant(this.defaultSkin);
-
                 npc.setFollowing(follow);
                 npc.setPaused(stay);
                 super.close();
@@ -333,10 +329,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                 this.selectedVariant = clickedVariant;
                 if (clickedVariant < toRender.size())
                     this.selectedVariantIndex = toRender.get(clickedVariant);
-
-                SkinIdentifier skin = NPCUtil.getNPCTexture(selectedVariantIndex);
-                this.npc.getSkinManager().applySkin(skin);
-                this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
