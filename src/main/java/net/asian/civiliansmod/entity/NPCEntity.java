@@ -260,6 +260,10 @@ public class NPCEntity extends PathAwareEntity {
         this.skinManager.readNbt(nbt);
 
         if (this.getWorld().isClient) {
+            int variant = this.skinManager.debugGetBaseVariant();
+            if (variant >= 0) {
+                this.getDataTracker().set(TRACKED_SKIN_VARIANT, variant);
+            }
             if (this.skinManager.skinIdentifier == null && this.skinManager.baseVariant >= 0) {
                 SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
                 if (skin != null) {

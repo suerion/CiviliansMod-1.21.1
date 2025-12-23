@@ -70,51 +70,25 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     }
 
     @Override
-    public void updateRenderState(NPCEntity livingEntity, NPCRenderState state, float tickDelta) {
-        super.updateRenderState(livingEntity, state, tickDelta);
+    public void updateRenderState(NPCEntity entity, NPCRenderState state, float tickDelta) {
+        super.updateRenderState(entity, state, tickDelta);
 
-        CiviliansMod.LOGGER.info(
-                "[DEBUG] NPC {} baseVariant={} trackedVariant={}",
-                livingEntity.getId(),
-                livingEntity.getSkinManager().debugGetBaseVariant(),
-                livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant())
-        );
+        int variant = entity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
 
-
-        int trackedVariant = livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
-
-        if (trackedVariant < 0) {
-            trackedVariant = NPCUtil.getDeterministicSkinIndex(livingEntity.getUuid());
-        }
-
-        if (trackedVariant >= 0) {
-            SkinIdentifier s = NPCUtil.getNPCTexture(trackedVariant);
-            if (s != null) {
-                state.texture = s.id();
-                state.slim = s.slim();
+        if (variant >= 0) {
+            SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
+            if (skin != null) {
+                state.texture = skin.id();
+                state.slim = skin.slim();
                 return;
             }
         }
 
-        // 2️⃣ SkinManager (Custom / gesetzt)
-        SkinIdentifier skin = livingEntity.getSkinManager().getIdSkin();
-        if (skin != null && skin.id() != null) {
-            state.texture = skin.id();
-            state.slim = skin.slim();
-            return;
+        int legacyVariant = NPCUtil.getDeterministicSkinIndex(entity.getUuid());
+        SkinIdentifier legacySkin = NPCUtil.getNPCTexture(legacyVariant);
+        if (legacySkin != null) {
+            state.texture = legacySkin.id();
+            state.slim = legacySkin.slim();
         }
-
-        // 3️⃣ Mod-Fallback
-        SkinIdentifier fallback = NPCUtil.getNPCTexture(0);
-        if (fallback != null) {
-            state.texture = fallback.id();
-            state.slim = fallback.slim();
-            return;
-        }
-
-        // 4️⃣ Vanilla als letzter Notfall
-        var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
-        state.texture = vanilla.texture();
-        state.slim = vanilla.model() == SkinTextures.Model.SLIM;
     }
 }
