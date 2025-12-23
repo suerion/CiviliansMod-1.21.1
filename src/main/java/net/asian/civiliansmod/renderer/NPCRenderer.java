@@ -82,6 +82,11 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
 
         int trackedVariant = livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
+
+        if (trackedVariant < 0) {
+            trackedVariant = NPCUtil.getDeterministicSkinIndex(livingEntity.getUuid());
+        }
+
         if (trackedVariant >= 0) {
             SkinIdentifier s = NPCUtil.getNPCTexture(trackedVariant);
             if (s != null) {

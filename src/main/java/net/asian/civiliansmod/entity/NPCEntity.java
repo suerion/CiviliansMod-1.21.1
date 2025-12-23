@@ -259,12 +259,14 @@ public class NPCEntity extends PathAwareEntity {
 
         this.skinManager.readNbt(nbt);
 
-        if (this.skinManager.skinIdentifier == null && this.skinManager.baseVariant >= 0) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
-            if (skin != null) {
-                this.skinManager.setIdSkin(skin);
-                this.skinManager.setSlim(skin.slim());
-                this.skinManager.defaultSkin = false;
+        if (this.getWorld().isClient) {
+            if (this.skinManager.skinIdentifier == null && this.skinManager.baseVariant >= 0) {
+                SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
+                if (skin != null) {
+                    this.skinManager.setIdSkin(skin);
+                    this.skinManager.setSlim(skin.slim());
+                    this.skinManager.defaultSkin = false;
+                }
             }
         }
 
@@ -829,7 +831,10 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
-           if (this.baseVariant >= 0) {
+            if (!npcEntity.getWorld().isClient) {
+                return null;
+            }
+            if (this.baseVariant >= 0) {
                 SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
                 if (skin != null) {
                     return skin;
@@ -924,6 +929,10 @@ public class NPCEntity extends PathAwareEntity {
             this.defaultSkin = false;
             this.baseVariant = NPCUtil.getSkins().indexOf(skin);
             this.skinSynced = true;
+
+            if (npcEntity.getWorld().isClient) {
+                this.baseVariant = NPCUtil.getSkins().indexOf(skin);
+            }
 
             if (!npcEntity.getWorld().isClient && this.baseVariant >= 0) {
                 npcEntity.getDataTracker().set(TRACKED_SKIN_VARIANT, this.baseVariant);
