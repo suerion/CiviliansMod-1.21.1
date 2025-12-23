@@ -25,7 +25,7 @@ public class FolderUtil {
     public static final Path SLIM_SKIN_PATH = SKIN_PATH.resolve("slim");
 
     public static void init() {
-        CiviliansMod.LOGGER.info("Initializing folders");
+        CiviliansMod.LOGGER.info("[CiviliansMod] Initializing folders");
         if (!CIVILIANS_PATH.toFile().exists()) {
             CIVILIANS_PATH.toFile().mkdirs();
         }

@@ -55,7 +55,10 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogue) implements 
 
             npc.getChatManager().setDialogues(dialogueMap);
             npc.dialoguesReceived = true;
+            /*
             CiviliansMod.LOGGER.info("[CiviliansMod] Dialogues received for NPC " + npcId);
+
+             */
             MinecraftClient.getInstance().execute(() -> {
                 if (MinecraftClient.getInstance().currentScreen instanceof CustomChatScreen screen) {
                     CiviliansMod.LOGGER.info("[CiviliansMod] Initializing CustomChatScreen after dialogue sync for NPC {}", npcId);

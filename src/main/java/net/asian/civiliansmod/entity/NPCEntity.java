@@ -95,11 +95,12 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
+        /*
         CiviliansMod.LOGGER.info(
                 "[NPC/SPAWN-PACKET] id={} waitingSync={}",
                 this.getId(),
                 NPCUtil.waitingSync.containsKey(this.getId())
-        );
+        );*/
         super.onSpawnPacket(packet);
 
         if (CiviliansMod.isFlashbackReplay()) {
@@ -145,12 +146,12 @@ public class NPCEntity extends PathAwareEntity {
             if (skin != null) {
                 this.skinManager.applySkin(skin);
             }
-
+/*
             CiviliansMod.LOGGER.info(
                     "[NPC/SPAWN-PACKET/NOTFLASHBACK] APPLIED SKIN id={} skin={}",
                     this.getId(),
                     skin
-            );
+            );*/
         }
         updateDialoguesTicks = 10;
     }
@@ -184,7 +185,7 @@ public class NPCEntity extends PathAwareEntity {
 
     public NPCEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
         super(entityType, world);
-
+        /*
         CiviliansMod.LOGGER.info(
                 "[NPC/CTOR:PRE_INIT] id={} worldClient={} flashback={} baseVariant={} skinId={}",
                 this.getId(),
@@ -192,17 +193,18 @@ public class NPCEntity extends PathAwareEntity {
                 CiviliansMod.isFlashbackReplay(),
                 this.skinManager.baseVariant,
                 this.skinManager.skinIdentifier
-        );
+        );*/
 
         if (this.getCustomName() == null) {
             this.nameManager.setRandomName(this.skinManager.slim);
         }
+        /*
         CiviliansMod.LOGGER.info(
                 "[NPC/CTOR:FINAL_STATE] id={} baseVariant={} skinId={}",
                 this.getId(),
                 this.skinManager.baseVariant,
                 this.skinManager.skinIdentifier
-        );
+        );*/
 
         if (!world.isClient) {
             this.sent = new HashSet<>();
@@ -336,7 +338,10 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     protected ActionResult interactMob(PlayerEntity player, Hand hand) {
+        /*
         CiviliansMod.LOGGER.info("[CiviliansMod] This is the NPC: {}", this.getId());
+
+         */
 
         // Ensure the interaction is in the main hand
         if (hand == Hand.MAIN_HAND) {
@@ -369,7 +374,10 @@ public class NPCEntity extends PathAwareEntity {
                         markSentTo(player.getUuid());
                         OpenScreenDialoguesPayload openScreenDialoguesPayload = new OpenScreenDialoguesPayload(this.getId(), this.chatManager.getDialogues());
                         ServerPlayNetworking.send(serverPlayer, openScreenDialoguesPayload);
+                        /*
                         CiviliansMod.LOGGER.info("[CiviliansMod] Sent dialogues for NPC {}", this.getId());
+
+                         */
                     }
 
                     return ActionResult.SUCCESS;
@@ -377,7 +385,10 @@ public class NPCEntity extends PathAwareEntity {
                     // CLIENT-SIDE: Only handle GUI opening when dialogues are received
                     // Remove the chat message here - it doesn't belong in sneak interaction
                     if (this.dialoguesReceived) {
+                        /*
                         CiviliansMod.LOGGER.info("[CiviliansMod] Opening GUI for NPC {}", this.getId());
+
+                         */
                         openCustomNPCScreen();
                     } else {
                         CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues yet for NPC {}", this.getId());
@@ -594,22 +605,31 @@ public class NPCEntity extends PathAwareEntity {
 
             Map<NpcChat.ChatReason, List<String>> langDialogues = dialogues.get(language);
             if (langDialogues == null || langDialogues.isEmpty()) {
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})",language , npc.getId());
+
+                 */
                 langDialogues = DefaultChat.getDefaultChat().get("en_us");
             }
 
             if (langDialogues == null && !dialogues.isEmpty()) {
                 langDialogues = dialogues.values().iterator().next();
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
+                */
             }
 
             if (langDialogues == null) {
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, using placeholder for NPC {}", npc.getId());
+                */
                 langDialogues = new EnumMap<>(NpcChat.ChatReason.class);
             }
 
             if (dialogues.isEmpty()) {
+                /*
                 CiviliansMod.LOGGER.error("[CiviliansMod] Dialogue map empty, loading default dialogues for NPC {}", npc.getId());
+                 */
                 dialogues.putAll(DefaultChat.getDefaultChat());
             }
 
@@ -626,17 +646,26 @@ public class NPCEntity extends PathAwareEntity {
 
             // fallback if no lang
             if (languageMap == null || languageMap.isEmpty()) {
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})", language, npc.getId());
+
+                 */
                 languageMap = DefaultChat.getDefaultChat().get("en_us");
             }
             //fallback if en_us is not available on error, use first other language
             if (languageMap == null && !dialogues.isEmpty()) {
                 languageMap = dialogues.values().iterator().next();
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
+
+                 */
             }
             //fallback if nothing works to DefaultChat
             if (languageMap == null) {
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, creating default placeholder map for NPC {}", npc.getId());
+
+                 */
                 languageMap = new EnumMap<>(NpcChat.ChatReason.class);
             }
             // get allways a placeholder list for reasons
@@ -844,6 +873,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         void writeNbt(NbtCompound nbt) {
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-WRITE] id={} baseVariant={} skinId={} slim={} default={}",
                     npcEntity.getId(),
@@ -852,6 +882,8 @@ public class NPCEntity extends PathAwareEntity {
                     this.slim,
                     this.defaultSkin
             );
+
+             */
             nbt.putInt("basevariant", this.baseVariant);
 
             if (this.skinIdentifier != null) {
@@ -866,6 +898,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         void readNbt(NbtCompound nbt) {
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-READ] id={} hasSkinId={} hasBaseVariant={} hasSkinBytes={}",
                     npcEntity.getId(),
@@ -873,6 +906,8 @@ public class NPCEntity extends PathAwareEntity {
                     nbt.contains("basevariant"),
                     nbt.contains("skin")
             );
+
+             */
             if (nbt.contains("skin_id")) {
                 Identifier id = Identifier.of(nbt.getString("skin_id").orElse(""));
                 boolean slim = nbt.getBoolean("skin_slim").orElse(false);
@@ -904,6 +939,7 @@ public class NPCEntity extends PathAwareEntity {
             } else if (this.skinIdentifier == null && this.skinByteArray == null) {
                 this.defaultSkin = true;
             }
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-READ] RESULT id={} baseVariant={} skinId={} slim={} default={}",
                     npcEntity.getId(),
@@ -912,6 +948,8 @@ public class NPCEntity extends PathAwareEntity {
                     this.slim,
                     this.defaultSkin
             );
+
+             */
         }
 
         public void setSlim(boolean slim) {

@@ -52,7 +52,10 @@ public record AddDialoguePayload(UUID npcUuid, String chatReason, String languag
             chatManager.getCustomDialogues()
                     .computeIfAbsent(reason, r -> new ArrayList<>())
                     .add(dialogue);
+            /*
             CiviliansMod.LOGGER.info("[CiviliansMod] Added custom dialogue '{}' for NPC {} [{}]", dialogue, npcUuid, reason);
+
+             */
 
         } else {
             // Add to normal dialogues for the given language

@@ -88,12 +88,18 @@ public record DialogueSyncPayload(int npcId, String info) implements CustomPaylo
             //fallback to en_us
             if (dialoguesForLanguage == null) {
                 dialoguesForLanguage = dialogueMap.get("en_us");
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us", clientLanguage);
+
+                 */
             }
             //fallback if en_us not available (only if error in the gen files)
             if (dialoguesForLanguage == null && !dialogueMap.isEmpty()) {
                 dialoguesForLanguage = dialogueMap.values().iterator().next();
+                /*
                 CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language");
+
+                 */
             }
 
             if (dialoguesForLanguage != null) {
@@ -103,7 +109,10 @@ public record DialogueSyncPayload(int npcId, String info) implements CustomPaylo
                 entity.getChatManager().setDialogues(correctLanguage);
                 entity.getChatManager().setCustomDialogues(customMap);
                 entity.dialoguesReceived = true;
+                /*
                 CiviliansMod.LOGGER.info("[CiviliansMod] Set {} dialogues and {} custom for NPC {}", dialoguesForLanguage.size(), customMap.size(), npcId);
+
+                 */
             } else {
                 CiviliansMod.LOGGER.error("[CiviliansMod] No dialogues available for NPC {}", npcId);
             }
@@ -113,7 +122,10 @@ public record DialogueSyncPayload(int npcId, String info) implements CustomPaylo
                 // sync again later
                 client.execute(() -> {
                     if (client.currentScreen instanceof CustomChatScreen screen) {
+                        /*
                         CiviliansMod.LOGGER.info("[CiviliansMod] Refreshing CustomChatScreen after dialogue sync for NPC " + npcId);
+
+                         */
                         screen.fullInit();
                     }
                 });

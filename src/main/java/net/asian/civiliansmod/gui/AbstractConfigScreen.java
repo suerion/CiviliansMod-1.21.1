@@ -31,7 +31,10 @@ public class AbstractConfigScreen extends Screen {
         int chatSelectionColor = this instanceof CustomChatScreen ? 0x00FF00 : 0xFFFFFFFF;
         TextButtonWidget chatSelection = new TextButtonWidget(x + 3, y - 78, 85, 13, Text.translatable("civilians.gui.chat"), (button) -> {
             if (!npc.dialoguesReceived) {
+                /*
                 CiviliansMod.LOGGER.info("[CiviliansMod] Requesting dialogues from server for NPC " + npc.getUuid());
+
+                 */
                 ClientPlayNetworking.send(new ClientDialogueSyncPayload(npc.getUuid()));
             }
             MinecraftClient client = MinecraftClient.getInstance();
@@ -40,7 +43,10 @@ public class AbstractConfigScreen extends Screen {
 
                         // check again if customchat screen is not open
                 if (npc.dialoguesReceived && client.currentScreen instanceof CustomChatScreen screen) {
+                    /*
                     CiviliansMod.LOGGER.info("[CiviliansMod] Initializing CustomChatScreen after dialogue sync for NPC " + npc.getId());
+
+                     */
                     screen.fullInit();
                 }
             });

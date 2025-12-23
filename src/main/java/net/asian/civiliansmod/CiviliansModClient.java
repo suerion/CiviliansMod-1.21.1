@@ -57,8 +57,10 @@ public class CiviliansModClient implements ClientModInitializer {
         CustomS2CNetworking.intialize();
 
           ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-
+/*
             CiviliansMod.LOGGER.info("[CiviliansMod] Client JOIN");
+
+ */
 
             FolderUtil.init();
             SkinFolderManager.register();
@@ -82,10 +84,16 @@ public class CiviliansModClient implements ClientModInitializer {
 
 
             if (isFlashbackReplay) {
+                /*
                 CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected – delayed skin refresh");
+
+                 */
                 MinecraftClient.getInstance().execute(NPCUtil::refreshTextures);
             } else {
+                /*
                 CiviliansMod.LOGGER.info("[CiviliansMod] Normal join – skin refresh");
+
+                 */
                 NPCUtil.refreshTextures();
             }
 

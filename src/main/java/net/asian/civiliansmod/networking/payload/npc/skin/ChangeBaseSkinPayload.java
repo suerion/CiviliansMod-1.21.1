@@ -37,16 +37,13 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
         int idx = this.baseVariant;
         SkinIdentifier skin = NPCUtil.getNPCTexture(idx);
 
-        // ✅ explizit setzen
         entity.getSkinManager().setBaseVariant(idx);
         entity.getSkinManager().setSlim(skin.slim());
         entity.getSkinManager().setIdSkin(skin);
         entity.getSkinManager().setDefaultSkin(false);
 
-        // ✅ DER entscheidende Fix
         entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
 
-        // Sync an andere Clients
         for (ServerPlayerEntity player : world.getPlayers()) {
             if (player.getUuid().equals(context.player().getUuid())) continue;
             ServerPlayNetworking.send(

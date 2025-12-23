@@ -37,17 +37,23 @@ public class NPCUtil {
 
     public static boolean isSlim(int index) {
         if (skins.isEmpty()) {
+            /*
             CiviliansMod.LOGGER.debug(
                     "[CiviliansMod] isSlim called but skins not loaded yet, defaulting to wide"
             );
+
+             */
             return false;
         }
 
         if (index < 0 || index >= skins.size()) {
+            /*
             CiviliansMod.LOGGER.warn(
                     "[CiviliansMod] isSlim called with invalid index {} (skins.size={}), defaulting to wide",
                     index, skins.size()
             );
+
+             */
             return false;
         }
 
@@ -89,12 +95,18 @@ public class NPCUtil {
 
     public static SkinIdentifier getNPCTexture(int texture) {
         if (skins.isEmpty()) {
+            /*
             CiviliansMod.LOGGER.error("Tried to get NPC skin but no skins are loaded!");
+
+             */
             return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, false);
         }
 
         if (texture < 0 || texture >= skins.size()) {
+            /*
             CiviliansMod.LOGGER.warn("Invalid skin index {} (skins.size = {}). Using 0 as fallback.", texture, skins.size());
+
+             */
             texture = 0;
         }
 
@@ -123,8 +135,10 @@ public class NPCUtil {
                 }
             }
         }
-
+/*
         CiviliansMod.LOGGER.info("[CiviliansMod] Re-synced NPC skins after texture refresh");
+
+ */
     }
 
 
@@ -194,8 +208,10 @@ public class NPCUtil {
     }
     public static void ensureSkinsLoaded() {
         if (!getSkins().isEmpty()) return;
-
+/*
         CiviliansMod.LOGGER.info("[FLASHBACK] Loading NPC skins manually");
+
+ */
         refreshTextures();
     }
 }

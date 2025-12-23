@@ -48,7 +48,7 @@ public class CiviliansMod implements ModInitializer {
   
     @Override
     public void onInitialize() {
-        LOGGER.info("Initializing CiviliansMod");
+        LOGGER.info("[CiviliansMod] Initializing CiviliansMod");
 
         FabricDefaultAttributeRegistry.register(ModEntities.NPC_ENTITY, NPCEntity.createAttributes());
 
