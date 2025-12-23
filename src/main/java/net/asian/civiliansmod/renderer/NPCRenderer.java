@@ -71,25 +71,22 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
     @Override
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState state, float tickDelta) {
-
-        // 🔒 FLASHBACK = IMMER DEFAULT
-        if (CiviliansMod.isFlashbackReplay()) {
-            var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
-            state.texture = vanilla.texture();
-            state.slim = vanilla.model() == SkinTextures.Model.SLIM;
-            return;
-        }
-
-        // ⬇️ NORMALER SPIELBETRIEB
         super.updateRenderState(livingEntity, state, tickDelta);
 
-        // 1️⃣ DataTracker hat Vorrang
+        CiviliansMod.LOGGER.info(
+                "[DEBUG] NPC {} baseVariant={} trackedVariant={}",
+                livingEntity.getId(),
+                livingEntity.getSkinManager().debugGetBaseVariant(),
+                livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant())
+        );
+
+
         int trackedVariant = livingEntity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
         if (trackedVariant >= 0) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(trackedVariant);
-            if (skin != null) {
-                state.texture = skin.id();
-                state.slim = skin.slim();
+            SkinIdentifier s = NPCUtil.getNPCTexture(trackedVariant);
+            if (s != null) {
+                state.texture = s.id();
+                state.slim = s.slim();
                 return;
             }
         }

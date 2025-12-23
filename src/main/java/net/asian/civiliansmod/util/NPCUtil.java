@@ -90,7 +90,7 @@ public class NPCUtil {
     public static SkinIdentifier getNPCTexture(int texture) {
         if (skins.isEmpty()) {
             CiviliansMod.LOGGER.error("Tried to get NPC skin but no skins are loaded!");
-            return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, true);
+            return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, false);
         }
 
         if (texture < 0 || texture >= skins.size()) {
@@ -187,5 +187,15 @@ public class NPCUtil {
         } catch (IOException e) {
             CiviliansMod.LOGGER.error("Failed to re-register NPC skin {}", skin.id(), e);
         }
+    }
+    public static int getDeterministicSkinIndex(UUID uuid) {
+        if (getSkins().isEmpty()) return -1;
+        return Math.floorMod(uuid.hashCode(), getSkins().size());
+    }
+    public static void ensureSkinsLoaded() {
+        if (!getSkins().isEmpty()) return;
+
+        CiviliansMod.LOGGER.info("[FLASHBACK] Loading NPC skins manually");
+        refreshTextures();
     }
 }

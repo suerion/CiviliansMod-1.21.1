@@ -34,10 +34,19 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
-        SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
+        int idx = this.baseVariant;
+        SkinIdentifier skin = NPCUtil.getNPCTexture(idx);
 
-        entity.getSkinManager().applySkin(skin);
+        // ✅ explizit setzen
+        entity.getSkinManager().setBaseVariant(idx);
+        entity.getSkinManager().setSlim(skin.slim());
+        entity.getSkinManager().setIdSkin(skin);
+        entity.getSkinManager().setDefaultSkin(false);
 
+        // ✅ DER entscheidende Fix
+        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
+
+        // Sync an andere Clients
         for (ServerPlayerEntity player : world.getPlayers()) {
             if (player.getUuid().equals(context.player().getUuid())) continue;
             ServerPlayNetworking.send(
@@ -46,4 +55,5 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
             );
         }
     }
+
 }

@@ -44,6 +44,12 @@ public record SyncSkinPayload(int npcId, Identifier skinId, boolean slim) implem
         if (entityById instanceof NPCEntity npcEntity) {
             npcEntity.getSkinManager().setIdSkin(skin);
             npcEntity.getSkinManager().setSlim(slim);
+
+            int idx = NPCUtil.getSkins().indexOf(skin);
+            if (idx >= 0) {
+                npcEntity.getSkinManager().setBaseVariant(idx);
+                npcEntity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
+            }
         }
     }
 }

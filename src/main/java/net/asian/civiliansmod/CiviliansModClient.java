@@ -1,18 +1,18 @@
 package net.asian.civiliansmod;
 
 import net.asian.civiliansmod.chat.NpcChat;
-import net.asian.civiliansmod.networking.CustomS2CNetworking;
-import net.asian.civiliansmod.networking.PlayerLanguagePayload;
-import net.asian.civiliansmod.util.FolderUtil;
 import net.asian.civiliansmod.custom_skins.SkinFolderManager;
 import net.asian.civiliansmod.entity.ModEntities;
+import net.asian.civiliansmod.model.NPCModel;
+import net.asian.civiliansmod.networking.CustomS2CNetworking;
+import net.asian.civiliansmod.networking.PlayerLanguagePayload;
+import net.asian.civiliansmod.renderer.NPCRenderer;
+import net.asian.civiliansmod.util.FolderUtil;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityModelLayerRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
-import net.asian.civiliansmod.renderer.NPCRenderer;
-import net.asian.civiliansmod.model.NPCModel;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
@@ -31,37 +31,37 @@ public class CiviliansModClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+
         SkinFolderManager.register();
 
         EntityRendererRegistry.register(ModEntities.NPC_ENTITY, NPCRenderer::new);
 
-        EntityModelLayerRegistry.registerModelLayer(WIDE_ENTITY_MODEL_LAYER, () -> TexturedModelData.of(NPCModel.getTexturedModelData( Dilation.NONE, false), 64, 64));
+        EntityModelLayerRegistry.registerModelLayer(
+                WIDE_ENTITY_MODEL_LAYER,
+                () -> TexturedModelData.of(
+                        NPCModel.getTexturedModelData(Dilation.NONE, false),
+                        64,
+                        64
+                )
+        );
 
-        EntityModelLayerRegistry.registerModelLayer(SLIM_ENTITY_MODEL_LAYER, () -> TexturedModelData.of(NPCModel.getTexturedModelData( Dilation.NONE, true), 64, 64));
-
-
-        //Since some libraries and minecraft methods are not registered during the client initializer,
-        //we gather the textures when a client joins a server.
-        ClientPlayConnectionEvents.INIT.register((phase, listener) -> {
-            FolderUtil.init();
-            SkinFolderManager.register();
-            NPCUtil.refreshTextures();
-            NpcChat.registerChat();
-        });
+        EntityModelLayerRegistry.registerModelLayer(
+                SLIM_ENTITY_MODEL_LAYER,
+                () -> TexturedModelData.of(
+                        NPCModel.getTexturedModelData(Dilation.NONE, true),
+                        64,
+                        64
+                )
+        );
 
         CustomS2CNetworking.intialize();
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+          ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
 
-            CiviliansMod.LOGGER.info("[CiviliansMod] JOIN event fired");
-            CiviliansMod.resetFlashbackCache();
+            CiviliansMod.LOGGER.info("[CiviliansMod] Client JOIN");
 
-            try {
-                Class.forName("com.moulberry.flashback.Flashback");
-                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback class FOUND");
-            } catch (ClassNotFoundException e) {
-                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback class NOT found");
-            }
+            FolderUtil.init();
+            SkinFolderManager.register();
 
             String lang = client.getLanguageManager().getLanguage();
             PacketByteBuf buf = PacketByteBufs.create();
@@ -69,6 +69,7 @@ public class CiviliansModClient implements ClientModInitializer {
             sender.sendPacket(new PlayerLanguagePayload(client.player.getUuid(), lang));
 
             boolean isFlashbackReplay = false;
+
 
             try {
                 Class<?> flashbackClass = Class.forName("com.moulberry.flashback.Flashback");
@@ -79,21 +80,18 @@ public class CiviliansModClient implements ClientModInitializer {
                 CiviliansMod.LOGGER.warn("[CiviliansMod] Flashback check failed", t);
             }
 
+
             if (isFlashbackReplay) {
-                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected (JOIN)");
-                FolderUtil.init();
-                SkinFolderManager.register();
-                MinecraftClient.getInstance().execute(() -> {
-                    CiviliansMod.LOGGER.info("[CiviliansMod] Delayed skin refresh for Flashback replay");
-                    NPCUtil.refreshTextures();
-                });
+                CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected – delayed skin refresh");
+                MinecraftClient.getInstance().execute(NPCUtil::refreshTextures);
             } else {
-                CiviliansMod.LOGGER.info("[CiviliansMod] Normal client join");
-                FolderUtil.init();
+                CiviliansMod.LOGGER.info("[CiviliansMod] Normal join – skin refresh");
                 NPCUtil.refreshTextures();
             }
+
             NpcChat.registerChat();
         });
-        CiviliansMod.LOGGER.info("[CiviliansMod] Model layers registered!");
+
+        CiviliansMod.LOGGER.info("[CiviliansMod] Client initialized");
     }
 }

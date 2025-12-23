@@ -277,7 +277,8 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
                 ClientPlayNetworking.send(basePayload);
             }
 
-            if (npc.getSkinManager().getIdSkin().custom()) {
+            SkinIdentifier skin = npc.getSkinManager().getIdSkin();
+            if (skin != null && skin.custom()) {
                 ChangeSkinPayload customPayload = new ChangeSkinPayload(npc.getUuid(), npc.getSkinManager().getIdSkin().slim(), npc.getSkinManager().getIdSkin());
                 ClientPlayNetworking.send(customPayload);
             }
@@ -327,8 +328,15 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
             if (clickedVariant != -1) {
                 this.selectedVariant = clickedVariant;
-                if (clickedVariant < toRender.size())
+                if (clickedVariant < toRender.size()) {
                     this.selectedVariantIndex = toRender.get(clickedVariant);
+
+                    SkinIdentifier previewSkin = NPCUtil.getNPCTexture(this.selectedVariantIndex);
+                    if (previewSkin != null) {
+                        npc.getSkinManager().setIdSkin(previewSkin);
+                        npc.getSkinManager().setSlim(previewSkin.slim());
+                    }
+                }
             }
         }
         return super.mouseClicked(mouseX, mouseY, button);
@@ -354,7 +362,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         int minIndex = Math.min(toRender.size() - this.startVariantIndex, 9);
 
         // Loop through all rendered variants
-        for (int i = 0; i <= minIndex; i++) {
+        for (int i = 0; i < minIndex; i++) {
             // Current variant's row and column
             int rowIndex = (i) / 3; // Determine row
             int columnIndex = (i) % 3; // Determine column
