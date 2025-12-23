@@ -887,9 +887,11 @@ public class NPCEntity extends PathAwareEntity {
                 this.slim = slim;
                 this.defaultSkin = false;
 
-                int skinidx = NPCUtil.getSkins().indexOf(this.skinIdentifier);
-                if (skinidx >= 0) {
-                    this.baseVariant = skinidx;
+                if (npcEntity.getWorld().isClient) {
+                    int skinidx = NPCUtil.getSkins().indexOf(this.skinIdentifier);
+                    if (skinidx >= 0) {
+                        this.baseVariant = skinidx;
+                    }
                 }
 
                 if (!custom) {
@@ -927,7 +929,6 @@ public class NPCEntity extends PathAwareEntity {
             this.skinIdentifier = skin;
             this.slim = skin.slim();
             this.defaultSkin = false;
-            this.baseVariant = NPCUtil.getSkins().indexOf(skin);
             this.skinSynced = true;
 
             if (npcEntity.getWorld().isClient) {
