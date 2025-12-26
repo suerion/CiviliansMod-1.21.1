@@ -236,24 +236,31 @@ public class NPCEntity extends PathAwareEntity {
         super.readCustomDataFromNbt(nbt);
         this.skinManager.readNbt(nbt);
 
-        if (!this.getWorld().isClient) {
-            int variant = this.skinManager.baseVariant;
-
-            if (variant < 0) {
-                variant = NPCUtil.getDeterministicSkinIndex(this.getUuid());
-                this.skinManager.setBaseVariant(variant);
-            }
-
-            this.getDataTracker().set(TRACKED_SKIN_VARIANT, variant);
-
-            this.skinManager.skinSynced = false;
-
-            CiviliansMod.LOGGER.info(
-                    "[NPC/NBT/SYNC] id={} synced trackedVariant={}",
-                    this.getId(),
-                    variant
-            );
+        // 1) baseVariant aus NBT erzwingen
+        if (this.skinManager.baseVariant < 0) {
+            this.skinManager.baseVariant =
+                    nbt.getInt("basevariant").orElse(-1);
         }
+
+        // 2) Wenn immer noch ungültig → deterministisch setzen
+        if (this.skinManager.baseVariant < 0) {
+            this.skinManager.baseVariant =
+                    NPCUtil.getDeterministicSkinIndex(this.getUuid());
+        }
+
+        // 3) IMMER trackedVariant setzen
+        this.getDataTracker().set(
+                TRACKED_SKIN_VARIANT,
+                this.skinManager.baseVariant
+        );
+
+        this.skinManager.skinSynced = false;
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/NBT/SYNC/FIXED] id={} trackedVariant={}",
+                this.getId(),
+                this.skinManager.baseVariant
+        );
 
         if (nbt.contains("IsPaused")) {
             this.setPaused(nbt.getBoolean("IsPaused").orElse(false));
@@ -923,10 +930,6 @@ public class NPCEntity extends PathAwareEntity {
                 this.skinIdentifier = new SkinIdentifier(id, slim, custom);
                 this.slim = slim;
                 this.defaultSkin = false;
-
-                if (!custom) {
-                    return;
-                }
             }
             if (this.baseVariant < 0) {
                 this.baseVariant = nbt.getInt("basevariant").orElse(-1);
