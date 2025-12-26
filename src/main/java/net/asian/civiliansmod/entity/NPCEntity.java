@@ -236,6 +236,42 @@ public class NPCEntity extends PathAwareEntity {
         super.readCustomDataFromNbt(nbt);
         this.skinManager.readNbt(nbt);
 
+        boolean isLegacyNpc = !nbt.contains("skin_id") && nbt.contains("basevariant");
+
+
+        if (isLegacyNpc
+                && this.getWorld().isClient
+                && this.skinManager.skinByteArray != null
+                && this.skinManager.skinIdentifier == null) {
+
+            SkinIdentifier legacySkin =
+                    new SkinIdentifier(
+                            Identifier.of(
+                                    CiviliansMod.MOD_ID,
+                                    "legacy_" + this.getUuid()
+                            ),
+                            this.skinManager.slim,
+                            true
+                    );
+
+            NPCUtil.registerCustomSkinFromBytes(
+                    legacySkin,
+                    this.skinManager.skinByteArray
+            );
+
+            this.skinManager.setIdSkin(legacySkin);
+        }
+
+        if (isLegacyNpc) {
+
+            int legacyBase = nbt.getInt("basevariant").orElse(-1);
+
+            if (legacyBase >= 0 && !NPCUtil.getSkins().isEmpty()) {
+                int migrated = Math.floorMod(Objects.hash(this.getUuid(), legacyBase), NPCUtil.getSkins().size());
+                this.skinManager.baseVariant = migrated;
+            }
+        }
+
         // 1) baseVariant aus NBT erzwingen
         if (this.skinManager.baseVariant < 0) {
             this.skinManager.baseVariant =
@@ -249,10 +285,12 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         // 3) IMMER trackedVariant setzen
-        this.getDataTracker().set(
-                TRACKED_SKIN_VARIANT,
-                this.skinManager.baseVariant
-        );
+        if (this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0) {
+            this.getDataTracker().set(
+                    TRACKED_SKIN_VARIANT,
+                    this.skinManager.baseVariant
+            );
+        }
 
         this.skinManager.skinSynced = false;
 /*
