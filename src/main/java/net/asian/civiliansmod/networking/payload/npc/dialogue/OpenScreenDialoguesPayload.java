@@ -41,30 +41,42 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogue) implements 
 
     public void handlePacket(ClientPlayNetworking.Context context) {
         if (!(context.player().getWorld() instanceof World world)) return;
-        if (!(world.getEntityById(this.npcId) instanceof NPCEntity)) {
-            Entity entity = world.getEntityById(this.npcId);
-            if (!(entity instanceof NPCEntity npc)) {
-                System.out.println(entity);
-                System.out.println("");
 
-                return;
-            }
-            var type = new TypeToken<Map<String, Map<NpcChat.ChatReason, List<String>>>>() {
-            }.getType();
-            Map<String, Map<NpcChat.ChatReason, List<String>>> dialogueMap = new Gson().fromJson(dialogue, type);
-
-            npc.getChatManager().setDialogues(dialogueMap);
-            npc.dialoguesReceived = true;
-            CiviliansMod.LOGGER.info("[CiviliansMod] Dialogues received for NPC " + npcId);
-            MinecraftClient.getInstance().execute(() -> {
-                if (MinecraftClient.getInstance().currentScreen instanceof CustomChatScreen screen) {
-                    CiviliansMod.LOGGER.info("[CiviliansMod] Initializing CustomChatScreen after dialogue sync for NPC {}", npcId);
-                    screen.fullInit(); // refresh entrys
-                } else {
-                    // not automatical open the screen
-                    CiviliansMod.LOGGER.info("[CiviliansMod] Dialogues received but CustomChatScreen not open yet for NPC {}", npcId);
-                }
-            });
+        Entity entity = world.getEntityById(this.npcId);
+        if (!(entity instanceof NPCEntity npc)) {
+            CiviliansMod.LOGGER.warn(
+                    "[CiviliansMod] Dialogue packet received but entity {} is not NPCEntity (was {})",
+                    npcId,
+                    entity == null ? "null" : entity.getClass().getName()
+            );
+            return;
         }
+
+        var type = new TypeToken<Map<String, Map<NpcChat.ChatReason, List<String>>>>() {}.getType();
+        Map<String, Map<NpcChat.ChatReason, List<String>>> dialogueMap =
+                new Gson().fromJson(dialogue, type);
+
+        npc.getChatManager().setDialogues(dialogueMap);
+        npc.dialoguesReceived = true;
+
+        CiviliansMod.LOGGER.info(
+                "[CiviliansMod] Dialogues received for NPC {} (dialoguesReceived=true)",
+                npcId
+        );
+
+        MinecraftClient.getInstance().execute(() -> {
+            if (MinecraftClient.getInstance().currentScreen instanceof CustomChatScreen screen) {
+                CiviliansMod.LOGGER.info(
+                        "[CiviliansMod] Initializing CustomChatScreen after dialogue sync for NPC {}",
+                        npcId
+                );
+                screen.fullInit();
+            } else {
+                CiviliansMod.LOGGER.info(
+                        "[CiviliansMod] Dialogues received but screen not open yet for NPC {}",
+                        npcId
+                );
+            }
+        });
     }
 }
