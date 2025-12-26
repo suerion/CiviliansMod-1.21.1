@@ -97,6 +97,10 @@ public class NPCEntity extends PathAwareEntity {
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
 
+        if (this.getWorld().isClient) {
+            NPCUtil.ensureSkinsLoaded();
+        }
+
         int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
         if (tracked >= 0) {
             SkinIdentifier skin = NPCUtil.getNPCTexture(tracked);
@@ -104,6 +108,12 @@ public class NPCEntity extends PathAwareEntity {
                 this.skinManager.applySkin(skin);
             }
         }
+        CiviliansMod.LOGGER.info(
+                "[NPC/SPAWN/CLIENT] id={} tracked={} skinsLoaded={}",
+                this.getId(),
+                tracked,
+                !NPCUtil.getSkins().isEmpty()
+        );
     }
 
     @Override

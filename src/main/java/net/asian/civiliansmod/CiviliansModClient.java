@@ -41,6 +41,7 @@ public class CiviliansModClient implements ClientModInitializer {
         EntityModelLayerRegistry.registerModelLayer(SLIM_ENTITY_MODEL_LAYER, () -> TexturedModelData.of(NPCModel.getTexturedModelData(Dilation.NONE, true), 64, 64));
 
         CustomS2CNetworking.intialize();
+
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             CiviliansMod.LOGGER.info("[CiviliansMod] Client JOIN");
 
