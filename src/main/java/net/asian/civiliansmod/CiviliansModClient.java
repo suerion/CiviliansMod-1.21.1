@@ -36,40 +36,22 @@ public class CiviliansModClient implements ClientModInitializer {
 
         EntityRendererRegistry.register(ModEntities.NPC_ENTITY, NPCRenderer::new);
 
-        EntityModelLayerRegistry.registerModelLayer(
-                WIDE_ENTITY_MODEL_LAYER,
-                () -> TexturedModelData.of(
-                        NPCModel.getTexturedModelData(Dilation.NONE, false),
-                        64,
-                        64
-                )
-        );
+        EntityModelLayerRegistry.registerModelLayer(WIDE_ENTITY_MODEL_LAYER, () -> TexturedModelData.of(NPCModel.getTexturedModelData(Dilation.NONE, false), 64, 64));
 
-        EntityModelLayerRegistry.registerModelLayer(
-                SLIM_ENTITY_MODEL_LAYER,
-                () -> TexturedModelData.of(
-                        NPCModel.getTexturedModelData(Dilation.NONE, true),
-                        64,
-                        64
-                )
-        );
+        EntityModelLayerRegistry.registerModelLayer(SLIM_ENTITY_MODEL_LAYER, () -> TexturedModelData.of(NPCModel.getTexturedModelData(Dilation.NONE, true), 64, 64));
 
         CustomS2CNetworking.intialize();
-
-          ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
-
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             CiviliansMod.LOGGER.info("[CiviliansMod] Client JOIN");
 
             FolderUtil.init();
             SkinFolderManager.register();
-
             String lang = client.getLanguageManager().getLanguage();
             PacketByteBuf buf = PacketByteBufs.create();
             buf.writeString(lang);
             sender.sendPacket(new PlayerLanguagePayload(client.player.getUuid(), lang));
 
             boolean isFlashbackReplay = false;
-
 
             try {
                 Class<?> flashbackClass = Class.forName("com.moulberry.flashback.Flashback");
@@ -80,18 +62,18 @@ public class CiviliansModClient implements ClientModInitializer {
                 CiviliansMod.LOGGER.warn("[CiviliansMod] Flashback check failed", t);
             }
 
+            CiviliansMod.resetFlashbackCache();
 
             if (isFlashbackReplay) {
                 CiviliansMod.LOGGER.info("[CiviliansMod] Flashback replay detected – delayed skin refresh");
                 MinecraftClient.getInstance().execute(NPCUtil::refreshTextures);
             } else {
                 CiviliansMod.LOGGER.info("[CiviliansMod] Normal join – skin refresh");
-                NPCUtil.refreshTextures();
+                NPCUtil.ensureSkinsLoaded();
             }
-
             NpcChat.registerChat();
         });
 
-        CiviliansMod.LOGGER.info("[CiviliansMod] Client initialized");
+          CiviliansMod.LOGGER.info("[CiviliansMod] Client initialized");
     }
 }

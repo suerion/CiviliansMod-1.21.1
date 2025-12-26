@@ -95,89 +95,49 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
-        CiviliansMod.LOGGER.info(
-                "[NPC/SPAWN-PACKET] id={} waitingSync={}",
-                this.getId(),
-                NPCUtil.waitingSync.containsKey(this.getId())
-        );
         super.onSpawnPacket(packet);
 
-        if (CiviliansMod.isFlashbackReplay()) {
-            if (this.skinManager.baseVariant < 0) {
-                int count = NPCUtil.getSkins().size();
-                if (count > 0) {
-                    this.skinManager.baseVariant = Math.floorMod(
-                            this.getUuid().hashCode(),
-                            count
-                    );
-                } else {
-                    this.skinManager.baseVariant = 0;
-                }
-            }
-
-            this.skinManager.skinIdentifier = null;
-            this.skinManager.skinByteArray = null;
-            this.skinManager.defaultSkin = true;
-            this.skinManager.skinSynced = false;
-        }
-
-        if (!CiviliansMod.isFlashbackReplay()) {
-            SkinIdentifier skin = NPCUtil.waitingSync.remove(this.getId());
-
-            if (skin != null && skin.custom() && this.getWorld().isClient) {
-                TextureManager tm = MinecraftClient.getInstance().getTextureManager();
-                AbstractTexture texture = tm.getTexture(skin.id());
-
-                if (!(texture instanceof NativeImageBackedTexture)) {
-                    byte[] data = this.skinManager.skinByteArray;
-                    if (data != null && data.length > 0) {
-                        NPCUtil.registerCustomSkinFromBytes(skin, data);
-                    } else {
-                        CiviliansMod.LOGGER.warn(
-                                "[NPC/SKIN] Custom skin {} has no byte data on client (id={})",
-                                skin.id(),
-                                this.getId()
-                        );
-                    }
-                }
-            }
-
+        int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
+        if (tracked >= 0) {
+            SkinIdentifier skin = NPCUtil.getNPCTexture(tracked);
             if (skin != null) {
                 this.skinManager.applySkin(skin);
             }
-
-            CiviliansMod.LOGGER.info(
-                    "[NPC/SPAWN-PACKET/NOTFLASHBACK] APPLIED SKIN id={} skin={}",
-                    this.getId(),
-                    skin
-            );
         }
-        updateDialoguesTicks = 10;
     }
 
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
         if (!this.skinManager.skinSynced) {
-            SkinIdentifier skin = this.skinManager.getIdSkin();
 
-            if (skin == null && this.skinManager.skinByteArray == null) {
+            int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
+
+            if (tracked < 0 && this.skinManager.skinIdentifier == null) {
+                CiviliansMod.LOGGER.warn(
+                        "[NPC/SPAWN] id={} delaying skin sync (tracked={}, baseVariant={})",
+                        this.getId(),
+                        tracked,
+                        this.skinManager.baseVariant
+                );
                 return super.createSpawnPacket(entityTrackerEntry);
             }
 
-            this.skinManager.skinSynced = true;
+            SkinIdentifier skin = this.skinManager.getIdSkin();
+            if (skin == null && this.skinManager.skinByteArray == null) {
+                return super.createSpawnPacket(entityTrackerEntry);
+            }
 
             if (this.skinManager.skinByteArray == null) {
                 for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skin.id(), skin.slim()));
                 }
+                this.skinManager.skinSynced = true;
             } else {
                 for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
                 }
+                this.skinManager.skinSynced = true;
             }
-        }
-        if (!this.getWorld().isClient && this.skinManager.baseVariant >= 0) {
-            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
         }
         return super.createSpawnPacket(entityTrackerEntry);
     }
@@ -197,6 +157,7 @@ public class NPCEntity extends PathAwareEntity {
         if (this.getCustomName() == null) {
             this.nameManager.setRandomName(this.skinManager.slim);
         }
+
         CiviliansMod.LOGGER.info(
                 "[NPC/CTOR:FINAL_STATE] id={} baseVariant={} skinId={}",
                 this.getId(),
@@ -219,6 +180,13 @@ public class NPCEntity extends PathAwareEntity {
         builder.add(IS_PAUSED, false);
         builder.add(IS_FOLLOWING, false);
         builder.add(TRACKED_SKIN_VARIANT, -1);
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/DATATRACKER/INIT] id={} initial trackedVariant={}",
+                this.getId(),
+                -1
+        );
+
     }
 
     @Override
@@ -256,22 +224,25 @@ public class NPCEntity extends PathAwareEntity {
     @Override
     public void readCustomDataFromNbt(NbtCompound nbt) {
         super.readCustomDataFromNbt(nbt);
-
         this.skinManager.readNbt(nbt);
 
-        if (this.getWorld().isClient) {
-            int variant = this.skinManager.debugGetBaseVariant();
-            if (variant >= 0) {
-                this.getDataTracker().set(TRACKED_SKIN_VARIANT, variant);
+        if (!this.getWorld().isClient) {
+            int variant = this.skinManager.baseVariant;
+
+            if (variant < 0) {
+                variant = NPCUtil.getDeterministicSkinIndex(this.getUuid());
+                this.skinManager.setBaseVariant(variant);
             }
-            if (this.skinManager.skinIdentifier == null && this.skinManager.baseVariant >= 0) {
-                SkinIdentifier skin = NPCUtil.getNPCTexture(this.skinManager.baseVariant);
-                if (skin != null) {
-                    this.skinManager.setIdSkin(skin);
-                    this.skinManager.setSlim(skin.slim());
-                    this.skinManager.defaultSkin = false;
-                }
-            }
+
+            this.getDataTracker().set(TRACKED_SKIN_VARIANT, variant);
+
+            this.skinManager.skinSynced = false;
+
+            CiviliansMod.LOGGER.info(
+                    "[NPC/NBT/SYNC] id={} synced trackedVariant={}",
+                    this.getId(),
+                    variant
+            );
         }
 
         if (nbt.contains("IsPaused")) {
@@ -574,6 +545,27 @@ public class NPCEntity extends PathAwareEntity {
         return degrees;
     }
 
+    @Override
+    public void onTrackedDataSet(TrackedData<?> data) {
+        super.onTrackedDataSet(data);
+
+        if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient) {
+            int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
+            if (tracked >= 0) {
+                SkinIdentifier skin = NPCUtil.getNPCTexture(tracked);
+                if (skin != null) {
+                    this.skinManager.applySkin(skin);
+                }
+            }
+            CiviliansMod.LOGGER.info(
+                    "[NPC/DATATRACKER/CHANGE] side={} id={} newTrackedVariant={}",
+                    this.getWorld().isClient ? "CLIENT" : "SERVER",
+                    this.getId(),
+                    this.getDataTracker().get(TRACKED_SKIN_VARIANT)
+            );
+        }
+    }
+
     public boolean hasSentTo(UUID playerId) {
         return sent.contains(playerId);
     }
@@ -835,21 +827,52 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
-            if (!npcEntity.getWorld().isClient) {
-                return null;
-            }
-            if (this.baseVariant >= 0) {
-                SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
-                if (skin != null) {
-                    return skin;
-                }
-            }
+            CiviliansMod.LOGGER.info(
+                    "[NPC/SKIN/GET] id={} flashback={} skinIdentifier={} baseVariant={} trackedVariant={} skinBytesLen={}",
+                    npcEntity.getId(),
+                    CiviliansMod.isFlashbackReplay(),
+                    this.skinIdentifier,
+                    this.baseVariant,
+                    npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT),
+                    (skinByteArray == null ? 0 : skinByteArray.length)
+            );
 
-            if (this.skinIdentifier != null) {
+// 1) If already resolved → NEVER change it again
+            if (this.skinIdentifier != null &&
+                    npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT) >= 0) {
                 return this.skinIdentifier;
             }
 
-            return NPCUtil.getNPCTexture(0);
+// 2) Try tracked variant (client-safe)
+            int tracked = npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT);
+            if (tracked >= 0) {
+                SkinIdentifier resolved = NPCUtil.getNPCTexture(tracked);
+                if (resolved != null) {
+                    this.skinIdentifier = resolved;
+                    this.slim = resolved.slim();
+                    this.defaultSkin = false;
+                    this.baseVariant = tracked;
+                    return resolved;
+                }
+            }
+
+// 3) baseVariant fallback (server-assigned)
+            if (this.baseVariant >= 0) {
+                SkinIdentifier resolved = NPCUtil.getNPCTexture(this.baseVariant);
+                if (resolved != null) {
+                    this.skinIdentifier = resolved;
+                    this.slim = resolved.slim();
+                    this.defaultSkin = false;
+                    return resolved;
+                }
+            }
+            CiviliansMod.LOGGER.error(
+                    "[NPC/SKIN] INVALID STATE id={} tracked={} baseVariant={}",
+                    npcEntity.getId(),
+                    npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT),
+                    baseVariant
+            );
+            return null;
         }
 
         void writeNbt(NbtCompound nbt) {
@@ -891,13 +914,6 @@ public class NPCEntity extends PathAwareEntity {
                 this.slim = slim;
                 this.defaultSkin = false;
 
-                if (npcEntity.getWorld().isClient) {
-                    int skinidx = NPCUtil.getSkins().indexOf(this.skinIdentifier);
-                    if (skinidx >= 0) {
-                        this.baseVariant = skinidx;
-                    }
-                }
-
                 if (!custom) {
                     return;
                 }
@@ -935,16 +951,35 @@ public class NPCEntity extends PathAwareEntity {
             this.defaultSkin = false;
             this.skinSynced = true;
 
-            if (npcEntity.getWorld().isClient) {
-                this.baseVariant = NPCUtil.getSkins().indexOf(skin);
-            }
-
-            if (!npcEntity.getWorld().isClient && this.baseVariant >= 0) {
-                npcEntity.getDataTracker().set(TRACKED_SKIN_VARIANT, this.baseVariant);
+            CiviliansMod.LOGGER.info(
+                    "[NPC/SKIN/APPLY] id={} skin={} slim={} custom={} baseVariant={}",
+                    npcEntity.getId(),
+                    skin.id(),
+                    skin.slim(),
+                    skin.custom(),
+                    baseVariant
+            );
+            if (this.skinIdentifier != null) {
+                CiviliansMod.LOGGER.info(
+                        "[NPC/SKIN/FINAL] id={} skin={} tracked={} baseVariant={}",
+                        npcEntity.getId(),
+                        skin.id(),
+                        npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT),
+                        this.baseVariant
+                );
             }
         }
+
         public void setDefaultSkin(boolean defaultSkin) {
             this.defaultSkin = defaultSkin;
+        }
+
+        public boolean isDefaultSkin() {
+            return this.defaultSkin;
+        }
+
+        public int debugGetSkinBytesLen() {
+            return (skinByteArray == null ? 0 : skinByteArray.length);
         }
 
         public int debugGetBaseVariant() {

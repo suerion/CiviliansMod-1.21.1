@@ -14,12 +14,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 @Environment(EnvType.CLIENT)
@@ -101,6 +97,13 @@ public class NPCUtil {
         return skins.get(texture);
     }
 
+    private static void sortSkins() {
+        skins.sort(Comparator
+                .comparing((SkinIdentifier s) -> s.custom())
+                .thenComparing(s -> s.id().toString())
+                .thenComparing(s -> s.slim())
+        );
+    }
 
     /**
      * method to refresh all the npc textures.
@@ -112,17 +115,11 @@ public class NPCUtil {
 
         registerDefaultCustomSkins();
         registerSlimCustomSkins();
+
+        sortSkins();
+
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
-
-        for (var entity : client.world.getEntities()) {
-            if (entity instanceof net.asian.civiliansmod.entity.NPCEntity npc) {
-                SkinIdentifier skin = npc.getSkinManager().getIdSkin();
-                if (skin != null) {
-                    waitingSync.put(npc.getId(), skin);
-                }
-            }
-        }
 
         CiviliansMod.LOGGER.info("[CiviliansMod] Re-synced NPC skins after texture refresh");
     }
@@ -136,7 +133,7 @@ public class NPCUtil {
      */
     private static void searchAndConvertSkins(Stream<@NotNull Path> files, boolean slim) {
         AtomicInteger i = new AtomicInteger();
-        files.forEach((file) -> {
+        files.sorted().forEach((file) -> {
             if (file.getFileName().toString().endsWith(".png")) {
                 try {
                     InputStream stream = Files.newInputStream(file);
@@ -147,7 +144,7 @@ public class NPCUtil {
                         if (image.getHeight() != 64 || image.getWidth() != 64) {
                             return;
                         }
-                        String textureName = "custom_skin_" + UUID.randomUUID();
+                        String textureName = "custom_skin_" + file.getFileName().toString().toLowerCase();
                         NativeImageBackedTexture dynamicTexture = new NativeImageBackedTexture(() -> textureName, image);
                         Identifier textureId = Identifier.of(CiviliansMod.MOD_ID, textureName);
                         MinecraftClient.getInstance().getTextureManager().registerTexture(textureId, dynamicTexture);

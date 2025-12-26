@@ -33,6 +33,8 @@ public class NPCRenderState extends BipedEntityRenderState {
     public final ItemRenderState spyglassState = new ItemRenderState();
 
     public NPCRenderState() {
+        this.slim = false;
+        this.texture = DefaultSkinHelper.getTexture();
     }
 
     public float getGlidingProgress() {

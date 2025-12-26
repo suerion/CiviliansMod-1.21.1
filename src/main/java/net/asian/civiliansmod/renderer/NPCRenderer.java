@@ -73,22 +73,24 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
     public void updateRenderState(NPCEntity entity, NPCRenderState state, float tickDelta) {
         super.updateRenderState(entity, state, tickDelta);
 
-        int variant = entity.getDataTracker().get(NPCEntity.getTrackedSkinVariant());
-
-        if (variant >= 0) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
-            if (skin != null) {
-                state.texture = skin.id();
-                state.slim = skin.slim();
-                return;
-            }
+        SkinIdentifier skin = entity.getSkinManager().getIdSkin();
+        if (skin == null) {
+            CiviliansMod.LOGGER.error("[NPC/RENDER] id={} getIdSkin() returned null!", entity.getId());
+            return;
         }
+        state.texture = skin.id();
+        state.slim = skin.slim();
 
-        int legacyVariant = NPCUtil.getDeterministicSkinIndex(entity.getUuid());
-        SkinIdentifier legacySkin = NPCUtil.getNPCTexture(legacyVariant);
-        if (legacySkin != null) {
-            state.texture = legacySkin.id();
-            state.slim = legacySkin.slim();
-        }
+        CiviliansMod.LOGGER.info(
+                "[NPC/RENDER] id={} flashback={} tracked={} baseVariant={} skinId={} slim={} defaultSkin={} skinBytes={}",
+                entity.getId(),
+                CiviliansMod.isFlashbackReplay(),
+                entity.getDataTracker().get(NPCEntity.getTrackedSkinVariant()),
+                entity.getSkinManager().debugGetBaseVariant(),
+                skin.id(),
+                skin.slim(),
+                entity.getSkinManager().isDefaultSkin(),
+                entity.getSkinManager().debugGetSkinBytesLen()
+        );
     }
 }
