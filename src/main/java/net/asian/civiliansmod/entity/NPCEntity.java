@@ -154,7 +154,7 @@ public class NPCEntity extends PathAwareEntity {
 
     public NPCEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
         super(entityType, world);
-
+/*
         CiviliansMod.LOGGER.info(
                 "[NPC/CTOR:PRE_INIT] id={} worldClient={} flashback={} baseVariant={} skinId={}",
                 this.getId(),
@@ -163,17 +163,17 @@ public class NPCEntity extends PathAwareEntity {
                 this.skinManager.baseVariant,
                 this.skinManager.skinIdentifier
         );
-
+*/
         if (this.getCustomName() == null) {
             this.nameManager.setRandomName(this.skinManager.slim);
         }
-
+/*
         CiviliansMod.LOGGER.info(
                 "[NPC/CTOR:FINAL_STATE] id={} baseVariant={} skinId={}",
                 this.getId(),
                 this.skinManager.baseVariant,
                 this.skinManager.skinIdentifier
-        );
+        );*/
 
         if (!world.isClient) {
             this.sent = new HashSet<>();
@@ -190,12 +190,12 @@ public class NPCEntity extends PathAwareEntity {
         builder.add(IS_PAUSED, false);
         builder.add(IS_FOLLOWING, false);
         builder.add(TRACKED_SKIN_VARIANT, -1);
-
+/*
         CiviliansMod.LOGGER.info(
                 "[NPC/DATATRACKER/INIT] id={} initial trackedVariant={}",
                 this.getId(),
                 -1
-        );
+        );*/
 
     }
 
@@ -255,12 +255,12 @@ public class NPCEntity extends PathAwareEntity {
         );
 
         this.skinManager.skinSynced = false;
-
+/*
         CiviliansMod.LOGGER.info(
                 "[NPC/NBT/SYNC/FIXED] id={} trackedVariant={}",
                 this.getId(),
                 this.skinManager.baseVariant
-        );
+        );*/
 
         if (nbt.contains("IsPaused")) {
             this.setPaused(nbt.getBoolean("IsPaused").orElse(false));
@@ -363,7 +363,7 @@ public class NPCEntity extends PathAwareEntity {
                         markSentTo(player.getUuid());
                         OpenScreenDialoguesPayload openScreenDialoguesPayload = new OpenScreenDialoguesPayload(this.getId(), this.chatManager.getDialogues());
                         ServerPlayNetworking.send(serverPlayer, openScreenDialoguesPayload);
-                        CiviliansMod.LOGGER.info("[CiviliansMod] Sent dialogues for NPC {}", this.getId());
+                        //CiviliansMod.LOGGER.info("[CiviliansMod] Sent dialogues for NPC {}", this.getId());
                     }
 
                     return ActionResult.SUCCESS;
@@ -574,12 +574,15 @@ public class NPCEntity extends PathAwareEntity {
                     this.skinManager.applySkin(skin);
                 }
             }
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/DATATRACKER/CHANGE] side={} id={} newTrackedVariant={}",
                     this.getWorld().isClient ? "CLIENT" : "SERVER",
                     this.getId(),
                     this.getDataTracker().get(TRACKED_SKIN_VARIANT)
             );
+
+             */
         }
     }
 
@@ -609,22 +612,22 @@ public class NPCEntity extends PathAwareEntity {
 
             Map<NpcChat.ChatReason, List<String>> langDialogues = dialogues.get(language);
             if (langDialogues == null || langDialogues.isEmpty()) {
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})",language , npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})",language , npc.getId());
                 langDialogues = DefaultChat.getDefaultChat().get("en_us");
             }
 
             if (langDialogues == null && !dialogues.isEmpty()) {
                 langDialogues = dialogues.values().iterator().next();
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
             }
 
             if (langDialogues == null) {
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, using placeholder for NPC {}", npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, using placeholder for NPC {}", npc.getId());
                 langDialogues = new EnumMap<>(NpcChat.ChatReason.class);
             }
 
             if (dialogues.isEmpty()) {
-                CiviliansMod.LOGGER.error("[CiviliansMod] Dialogue map empty, loading default dialogues for NPC {}", npc.getId());
+                //CiviliansMod.LOGGER.error("[CiviliansMod] Dialogue map empty, loading default dialogues for NPC {}", npc.getId());
                 dialogues.putAll(DefaultChat.getDefaultChat());
             }
 
@@ -641,17 +644,17 @@ public class NPCEntity extends PathAwareEntity {
 
             // fallback if no lang
             if (languageMap == null || languageMap.isEmpty()) {
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})", language, npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues for language {}, falling back to en_us (NPC ID: {})", language, npc.getId());
                 languageMap = DefaultChat.getDefaultChat().get("en_us");
             }
             //fallback if en_us is not available on error, use first other language
             if (languageMap == null && !dialogues.isEmpty()) {
                 languageMap = dialogues.values().iterator().next();
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No en_us dialogues, using first available language for NPC {}", npc.getId());
             }
             //fallback if nothing works to DefaultChat
             if (languageMap == null) {
-                CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, creating default placeholder map for NPC {}", npc.getId());
+                //CiviliansMod.LOGGER.warn("[CiviliansMod] No dialogues available at all, creating default placeholder map for NPC {}", npc.getId());
                 languageMap = new EnumMap<>(NpcChat.ChatReason.class);
             }
             // get allways a placeholder list for reasons
@@ -844,6 +847,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/SKIN/GET] id={} flashback={} skinIdentifier={} baseVariant={} trackedVariant={} skinBytesLen={}",
                     npcEntity.getId(),
@@ -853,6 +857,7 @@ public class NPCEntity extends PathAwareEntity {
                     npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT),
                     (skinByteArray == null ? 0 : skinByteArray.length)
             );
+             */
 
 // 1) If already resolved → NEVER change it again
             if (this.skinIdentifier != null &&
@@ -883,16 +888,19 @@ public class NPCEntity extends PathAwareEntity {
                     return resolved;
                 }
             }
+            /*
             CiviliansMod.LOGGER.error(
                     "[NPC/SKIN] INVALID STATE id={} tracked={} baseVariant={}",
                     npcEntity.getId(),
                     npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT),
                     baseVariant
             );
+             */
             return null;
         }
 
         void writeNbt(NbtCompound nbt) {
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-WRITE] id={} baseVariant={} skinId={} slim={} default={}",
                     npcEntity.getId(),
@@ -901,6 +909,7 @@ public class NPCEntity extends PathAwareEntity {
                     this.slim,
                     this.defaultSkin
             );
+             */
             nbt.putInt("basevariant", this.baseVariant);
 
             if (this.skinIdentifier != null) {
@@ -915,6 +924,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         void readNbt(NbtCompound nbt) {
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-READ] id={} hasSkinId={} hasBaseVariant={} hasSkinBytes={}",
                     npcEntity.getId(),
@@ -922,6 +932,7 @@ public class NPCEntity extends PathAwareEntity {
                     nbt.contains("basevariant"),
                     nbt.contains("skin")
             );
+            */
             if (nbt.contains("skin_id")) {
                 Identifier id = Identifier.of(nbt.getString("skin_id").orElse(""));
                 boolean slim = nbt.getBoolean("skin_slim").orElse(false);
@@ -944,6 +955,7 @@ public class NPCEntity extends PathAwareEntity {
             } else if (this.skinIdentifier == null && this.skinByteArray == null) {
                 this.defaultSkin = true;
             }
+            /*
             CiviliansMod.LOGGER.info(
                     "[NPC/NBT-READ] RESULT id={} baseVariant={} skinId={} slim={} default={}",
                     npcEntity.getId(),
@@ -952,6 +964,7 @@ public class NPCEntity extends PathAwareEntity {
                     this.slim,
                     this.defaultSkin
             );
+             */
         }
 
         public void setSlim(boolean slim) {
@@ -963,7 +976,7 @@ public class NPCEntity extends PathAwareEntity {
             this.slim = skin.slim();
             this.defaultSkin = false;
             this.skinSynced = true;
-
+/*
             CiviliansMod.LOGGER.info(
                     "[NPC/SKIN/APPLY] id={} skin={} slim={} custom={} baseVariant={}",
                     npcEntity.getId(),
@@ -972,6 +985,8 @@ public class NPCEntity extends PathAwareEntity {
                     skin.custom(),
                     baseVariant
             );
+
+ */
             if (this.skinIdentifier != null) {
                 CiviliansMod.LOGGER.info(
                         "[NPC/SKIN/FINAL] id={} skin={} tracked={} baseVariant={}",

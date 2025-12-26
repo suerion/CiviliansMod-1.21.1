@@ -567,8 +567,14 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         @SuppressWarnings("unchecked")// Create a new preview NPC
         NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
-        //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(toRender.get(variantIndex)));
+        int skinIndex = toRender.get(variantIndex);
+        SkinIdentifier skin = NPCUtil.getNPCTexture(skinIndex);
+
+        previewNPC.getSkinManager().setIdSkin(skin);
+        previewNPC.getSkinManager().setSlim(skin.slim());
+        previewNPC.getSkinManager().setBaseVariant(skinIndex);
+
+        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinIndex);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -584,8 +590,12 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         @SuppressWarnings("unchecked")// Create a new preview NPC
         NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
-        //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
+        SkinIdentifier skin = NPCUtil.getNPCTexture(skinId);
+
+        previewNPC.getSkinManager().setIdSkin(skin);
+        previewNPC.getSkinManager().setSlim(skin.slim());
+        previewNPC.getSkinManager().setBaseVariant(skinId);
+        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinId);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -602,7 +612,15 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
 
         //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(npc.getSkinManager().getIdSkin());
+        int idx = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
+        if (idx < 0) idx = 0;
+
+        SkinIdentifier skin = NPCUtil.getNPCTexture(idx);
+
+        previewNPC.getSkinManager().setIdSkin(skin);
+        previewNPC.getSkinManager().setSlim(skin.slim());
+        previewNPC.getSkinManager().setBaseVariant(idx);
+        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
