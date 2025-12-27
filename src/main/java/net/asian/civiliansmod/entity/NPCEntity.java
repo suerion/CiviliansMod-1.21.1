@@ -261,8 +261,7 @@ public class NPCEntity extends PathAwareEntity {
             int legacyBase = nbt.getInt("basevariant").orElse(-1);
 
             if (legacyBase >= 0 && !NPCUtil.getSkins().isEmpty()) {
-                int migrated = Math.floorMod(Objects.hash(this.getUuid(), legacyBase), NPCUtil.getSkins().size());
-                this.skinManager.baseVariant = migrated;
+                this.skinManager.baseVariant = legacyBase;
             }
         }
 
@@ -277,7 +276,7 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         // 2) Wenn immer noch ungültig → deterministisch setzen
-        if (this.skinManager.baseVariant < 0) {
+        if (this.skinManager.baseVariant < 0 && !CiviliansMod.isFlashbackReplay()) {
             if (this.getWorld().isClient) {
                 this.skinManager.baseVariant = NPCUtil.getDeterministicSkinIndex(this.getUuid());
             } else {
