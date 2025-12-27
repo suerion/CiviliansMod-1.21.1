@@ -22,7 +22,6 @@ import java.util.stream.Stream;
 public class NPCUtil {
     public static final Map<Integer, SkinIdentifier> waitingSync = new HashMap<>();
 
-
     static final List<SkinIdentifier> skins = new ArrayList<>();
 
     public static List<SkinIdentifier> getSkins() {
@@ -30,6 +29,8 @@ public class NPCUtil {
     }
 
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
+
+    private static boolean sortedForNewSystem = false;
 
     public static boolean isSlim(int index) {
         if (skins.isEmpty()) {
@@ -97,12 +98,17 @@ public class NPCUtil {
         return skins.get(texture);
     }
 
-    private static void sortSkins() {
+    public static void sortSkins() {
+        if (sortedForNewSystem) return;
+
         skins.sort(Comparator
                 .comparing((SkinIdentifier s) -> s.custom())
                 .thenComparing(s -> s.id().toString())
                 .thenComparing(s -> s.slim())
         );
+        sortedForNewSystem = true;
+
+        CiviliansMod.LOGGER.info("[CiviliansMod] Skins sorted for NEW NPC system");
     }
 
     /**
@@ -110,13 +116,11 @@ public class NPCUtil {
      */
     public static void refreshTextures() {
         skins.clear();
+        sortedForNewSystem = false;
         registerDefaultSkins();
         registerSlimSkins();
-
         registerDefaultCustomSkins();
         registerSlimCustomSkins();
-
-        sortSkins();
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;

@@ -83,6 +83,16 @@ public class NPCEntity extends PathAwareEntity {
     public SkinManager getSkinManager() {
         return skinManager;
     }
+
+    public boolean isLegacyNpc() {
+        // OLD NPC's!!! Legacy Skinsystem
+        return this.getWorld() != null
+                && this.getWorld().isClient
+                && this.skinManager.baseVariant >= 0
+                && this.skinManager.skinIdentifier == null
+                && this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0;
+    }
+
     public ChatManager getChatManager() { return chatManager; }
 
     public static TrackedData<Integer> getTrackedSkinVariant() {
@@ -284,9 +294,14 @@ public class NPCEntity extends PathAwareEntity {
             }
         }
 
-        // 3) IMMER trackedVariant setzen
-        if (this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0) {
-            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
+// 3) trackedVariant NUR für neue NPCs setzen
+        if (!isLegacyNpc()) {
+            if (this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0) {
+                this.getDataTracker().set(
+                        TRACKED_SKIN_VARIANT,
+                        this.skinManager.baseVariant
+                );
+            }
         }
 
         this.skinManager.skinSynced = false;
@@ -615,7 +630,7 @@ public class NPCEntity extends PathAwareEntity {
     public void onTrackedDataSet(TrackedData<?> data) {
         super.onTrackedDataSet(data);
 
-        if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient) {
+        if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient  && !isLegacyNpc()) {
             int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
             if (tracked >= 0) {
                 SkinIdentifier skin = NPCUtil.getNPCTexture(tracked);
@@ -895,7 +910,21 @@ public class NPCEntity extends PathAwareEntity {
             this.skinIdentifier = skin;
         }
 
+        public boolean hasExplicitSkinId() {
+            return this.skinIdentifier != null;
+        }
+
         public SkinIdentifier getIdSkin() {
+
+            if (npcEntity.isLegacyNpc()) {
+                return resolveLegacySkin();
+            }
+
+            return resolveNewSkin();
+        }
+
+        private SkinIdentifier resolveNewSkin() {
+            /*
             // FLASHBACK: client-only legacy resolve
             if (CiviliansMod.isFlashbackReplay()) {
                 CiviliansMod.LOGGER.info(
@@ -934,9 +963,14 @@ public class NPCEntity extends PathAwareEntity {
 
                 return null;
             }
+            */
 
             if (!npcEntity.getWorld().isClient || FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
                 return null;
+            }
+
+            if (!NPCUtil.getSkins().isEmpty()) {
+                NPCUtil.sortSkins();
             }
             /*
             CiviliansMod.LOGGER.info(
@@ -950,13 +984,11 @@ public class NPCEntity extends PathAwareEntity {
             );
              */
 
-// 1) If already resolved → NEVER change it again
             if (this.skinIdentifier != null &&
                     npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT) >= 0) {
                 return this.skinIdentifier;
             }
 
-// 2) Try tracked variant (client-safe)
             int tracked = npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT);
             if (tracked >= 0) {
                 SkinIdentifier resolved = NPCUtil.getNPCTexture(tracked);
@@ -969,7 +1001,6 @@ public class NPCEntity extends PathAwareEntity {
                 }
             }
 
-// 3) baseVariant fallback (server-assigned)
             if (this.baseVariant >= 0) {
                 SkinIdentifier resolved = NPCUtil.getNPCTexture(this.baseVariant);
                 if (resolved != null) {
@@ -987,6 +1018,38 @@ public class NPCEntity extends PathAwareEntity {
                     baseVariant
             );
              */
+            return null;
+        }
+
+        private SkinIdentifier resolveLegacySkin() {
+
+            if (NPCUtil.getSkins().isEmpty()) {
+                return null; // wait if skins not loaded?
+            }
+
+            // already resolved → keep
+            if (this.skinIdentifier != null) {
+                return this.skinIdentifier;
+            }
+
+            // legacy behavior: baseVariant IS the truth
+            if (this.baseVariant >= 0 && !NPCUtil.getSkins().isEmpty()) {
+                SkinIdentifier legacy = NPCUtil.getNPCTexture(this.baseVariant);
+                if (legacy != null) {
+                    this.skinIdentifier = legacy;
+                    this.slim = legacy.slim();
+                    this.defaultSkin = false;
+                    return legacy;
+                }
+            }
+
+            // no guessing, no fallback
+            CiviliansMod.LOGGER.error(
+                    "[NPC/LEGACY] Could not resolve legacy skin id={} baseVariant={}",
+                    npcEntity.getId(),
+                    this.baseVariant
+            );
+
             return null;
         }
 
