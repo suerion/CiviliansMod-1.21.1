@@ -309,9 +309,14 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         CiviliansMod.LOGGER.info(
-                "[NPC/LOAD] Loaded NPC {} baseVariant={}",
+                "[NPC/READ/NBT/FINAL] id={} worldClient={} flashback={} baseVariant={} trackedVariant={} skinId={} hasBytes={}",
                 this.getId(),
-                this.skinManager.baseVariant
+                this.getWorld().isClient,
+                CiviliansMod.isFlashbackReplay(),
+                this.skinManager.baseVariant,
+                this.getDataTracker().get(TRACKED_SKIN_VARIANT),
+                this.skinManager.skinIdentifier,
+                this.skinManager.skinByteArray != null
         );
     }
 
@@ -894,6 +899,13 @@ public class NPCEntity extends PathAwareEntity {
         public SkinIdentifier getIdSkin() {
             // FLASHBACK: client-only legacy resolve
             if (CiviliansMod.isFlashbackReplay()) {
+                CiviliansMod.LOGGER.info(
+                        "[FLASHBACK/SKIN] id={} skinId={} baseVariant={} skinsLoaded={}",
+                        npcEntity.getId(),
+                        this.skinIdentifier,
+                        this.baseVariant,
+                        NPCUtil.getSkins().size()
+                );
 
                 // already resolved → keep forever
                 if (this.skinIdentifier != null) {
