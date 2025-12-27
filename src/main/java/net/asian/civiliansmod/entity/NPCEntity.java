@@ -97,7 +97,9 @@ public class NPCEntity extends PathAwareEntity {
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
 
-        if (!this.getWorld().isClient) return;
+        if (!this.getWorld().isClient || !FabricLoader.getInstance().getEnvironmentType().equals(EnvType.CLIENT)) {
+            return;
+        }
 
         if (NPCUtil.getSkins().isEmpty()) {
             CiviliansMod.LOGGER.warn(
@@ -118,6 +120,9 @@ public class NPCEntity extends PathAwareEntity {
 
     @Override
     public Packet<ClientPlayPacketListener> createSpawnPacket(EntityTrackerEntry entityTrackerEntry) {
+        if (!this.getWorld().isClient) {
+            return super.createSpawnPacket(entityTrackerEntry);
+        }
         if (!this.skinManager.skinSynced) {
 
             int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
@@ -229,6 +234,13 @@ public class NPCEntity extends PathAwareEntity {
         nbt.putBoolean("IsFollowing", this.isFollowing());
         nbt.put("dialogues", chatManager.saveDialogues());
         this.skinManager.writeNbt(nbt);
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/SAVE] Writing NPC {} to NBT in chunk {} {}",
+                this.getId(),
+                this.getBlockPos().getX() >> 4,
+                this.getBlockPos().getZ() >> 4
+        );
     }
 
     @Override
@@ -238,31 +250,13 @@ public class NPCEntity extends PathAwareEntity {
 
         boolean isLegacyNpc = !nbt.contains("skin_id") && nbt.contains("basevariant");
 
-
-        if (isLegacyNpc
-                && this.getWorld().isClient
-                && this.skinManager.skinByteArray != null
-                && this.skinManager.skinIdentifier == null) {
-
-            SkinIdentifier legacySkin =
-                    new SkinIdentifier(
-                            Identifier.of(
-                                    CiviliansMod.MOD_ID,
-                                    "legacy_" + this.getUuid()
-                            ),
-                            this.skinManager.slim,
-                            true
-                    );
-
-            NPCUtil.registerCustomSkinFromBytes(
-                    legacySkin,
-                    this.skinManager.skinByteArray
-            );
-
+        if (isLegacyNpc && this.getWorld().isClient && this.skinManager.skinByteArray != null && this.skinManager.skinIdentifier == null) {
+            SkinIdentifier legacySkin = new SkinIdentifier(Identifier.of(CiviliansMod.MOD_ID, "legacy_" + this.getUuid()), this.skinManager.slim, true);
+            NPCUtil.registerCustomSkinFromBytes(legacySkin, this.skinManager.skinByteArray);
             this.skinManager.setIdSkin(legacySkin);
         }
 
-        if (isLegacyNpc) {
+        if (isLegacyNpc && this.getWorld().isClient) {
 
             int legacyBase = nbt.getInt("basevariant").orElse(-1);
 
@@ -272,24 +266,28 @@ public class NPCEntity extends PathAwareEntity {
             }
         }
 
+        if (isLegacyNpc && !this.getWorld().isClient && this.skinManager.baseVariant < 0) {
+            this.skinManager.baseVariant =
+                    nbt.getInt("basevariant").orElse(0);
+        }
+
         // 1) baseVariant aus NBT erzwingen
         if (this.skinManager.baseVariant < 0) {
-            this.skinManager.baseVariant =
-                    nbt.getInt("basevariant").orElse(-1);
+            this.skinManager.baseVariant = nbt.getInt("basevariant").orElse(-1);
         }
 
         // 2) Wenn immer noch ungültig → deterministisch setzen
         if (this.skinManager.baseVariant < 0) {
-            this.skinManager.baseVariant =
-                    NPCUtil.getDeterministicSkinIndex(this.getUuid());
+            if (this.getWorld().isClient) {
+                this.skinManager.baseVariant = NPCUtil.getDeterministicSkinIndex(this.getUuid());
+            } else {
+                this.skinManager.baseVariant = Math.floorMod(this.getUuid().hashCode(), 64);
+            }
         }
 
         // 3) IMMER trackedVariant setzen
         if (this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0) {
-            this.getDataTracker().set(
-                    TRACKED_SKIN_VARIANT,
-                    this.skinManager.baseVariant
-            );
+            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
         }
 
         this.skinManager.skinSynced = false;
@@ -309,6 +307,12 @@ public class NPCEntity extends PathAwareEntity {
         if (nbt.contains("dialogues")) {
             this.chatManager.setFromNbt(nbt.getCompound("dialogues"));
         }
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/LOAD] Loaded NPC {} baseVariant={}",
+                this.getId(),
+                this.skinManager.baseVariant
+        );
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -396,12 +400,15 @@ public class NPCEntity extends PathAwareEntity {
                     isTurning = true;
                     this.lookAtPlayerTicks = 60;
 
-                    // Only send dialogue payload if not already sent
-                    if (player instanceof ServerPlayerEntity serverPlayer && !hasSentTo(player.getUuid())) {
-                        markSentTo(player.getUuid());
-                        OpenScreenDialoguesPayload openScreenDialoguesPayload = new OpenScreenDialoguesPayload(this.getId(), this.chatManager.getDialogues());
-                        ServerPlayNetworking.send(serverPlayer, openScreenDialoguesPayload);
-                        //CiviliansMod.LOGGER.info("[CiviliansMod] Sent dialogues for NPC {}", this.getId());
+                    if (player instanceof ServerPlayerEntity serverPlayer) {
+
+                        this.sent.remove(player.getUuid());
+
+                        if (!hasSentTo(player.getUuid())) {
+                            markSentTo(player.getUuid());
+                            OpenScreenDialoguesPayload payload = new OpenScreenDialoguesPayload(this.getId(), this.chatManager.getDialogues());
+                            ServerPlayNetworking.send(serverPlayer, payload);
+                        }
                     }
 
                     return ActionResult.SUCCESS;
@@ -885,6 +892,10 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
+            if (!npcEntity.getWorld().isClient
+                    || FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
+                return null;
+            }
             /*
             CiviliansMod.LOGGER.info(
                     "[NPC/SKIN/GET] id={} flashback={} skinIdentifier={} baseVariant={} trackedVariant={} skinBytesLen={}",

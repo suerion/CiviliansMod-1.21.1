@@ -2,8 +2,6 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.util.NPCUtil;
-import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -34,26 +32,11 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
-        int idx = this.baseVariant;
-        SkinIdentifier skin = NPCUtil.getNPCTexture(idx);
+        int skinidx = this.baseVariant;
 
-        // ✅ explizit setzen
-        entity.getSkinManager().setBaseVariant(idx);
-        entity.getSkinManager().setSlim(skin.slim());
-        entity.getSkinManager().setIdSkin(skin);
-        entity.getSkinManager().setDefaultSkin(false);
+        entity.getSkinManager().setBaseVariant(skinidx);
 
-        // ✅ DER entscheidende Fix
-        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
-
-        // Sync an andere Clients
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            if (player.getUuid().equals(context.player().getUuid())) continue;
-            ServerPlayNetworking.send(
-                    player,
-                    new SyncSkinPayload(entity.getId(), skin.id(), skin.slim())
-            );
-        }
+        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinidx);
     }
 
 }
