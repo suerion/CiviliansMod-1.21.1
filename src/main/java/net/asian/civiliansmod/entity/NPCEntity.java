@@ -62,13 +62,13 @@ import java.util.*;
 import java.util.function.BiConsumer;
 
 public class NPCEntity extends PathAwareEntity {
-    private static final TrackedData<Integer> TRACKED_SKIN_VARIANT = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
     private float targetYaw = 0.0F; // The yaw to smoothly rotate towards
     private boolean isTurning = false; // Whether the NPC is currently in the process of turning
     private int lookAtPlayerTicks = 0;
     private static final TrackedData<Boolean> IS_PAUSED = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private int regenerationCooldown = 0;
     private static final TrackedData<Boolean> IS_FOLLOWING = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
+    private static final TrackedData<Integer> TRACKED_SKIN_VARIANT = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
     int updateDialoguesTicks = 0;
 
     //@Environment(EnvType.SERVER)
