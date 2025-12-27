@@ -892,8 +892,39 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
-            if (!npcEntity.getWorld().isClient
-                    || FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
+            // FLASHBACK: client-only legacy resolve
+            if (CiviliansMod.isFlashbackReplay()) {
+
+                // already resolved → keep forever
+                if (this.skinIdentifier != null) {
+                    return this.skinIdentifier;
+                }
+
+                // try baseVariant → legacy skin list
+                if (this.baseVariant >= 0 && !NPCUtil.getSkins().isEmpty()) {
+                    SkinIdentifier legacy = NPCUtil.getNPCTexture(this.baseVariant);
+                    if (legacy != null) {
+                        this.skinIdentifier = legacy;
+                        this.slim = legacy.slim();
+                        this.defaultSkin = false;
+                        return legacy;
+                    }
+                }
+
+                // last resort: deterministic UUID-based fallback
+                int idx = NPCUtil.getDeterministicSkinIndex(npcEntity.getUuid());
+                SkinIdentifier fallback = NPCUtil.getNPCTexture(idx);
+                if (fallback != null) {
+                    this.skinIdentifier = fallback;
+                    this.slim = fallback.slim();
+                    this.defaultSkin = false;
+                    return fallback;
+                }
+
+                return null;
+            }
+
+            if (!npcEntity.getWorld().isClient || FabricLoader.getInstance().getEnvironmentType() != EnvType.CLIENT) {
                 return null;
             }
             /*
