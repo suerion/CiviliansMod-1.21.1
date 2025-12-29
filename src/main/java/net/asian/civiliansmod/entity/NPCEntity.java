@@ -869,6 +869,10 @@ public class NPCEntity extends PathAwareEntity {
                 return this.skinIdentifier;
             }
 
+            if (!npcEntity.getWorld().isClient) {
+                return null;
+            }
+
             // Legacy
             if (npcEntity.isLegacyNpc()) {
                 if (this.baseVariant >= 0) {
