@@ -2,6 +2,8 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -32,11 +34,19 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
-        int skinidx = this.baseVariant;
+        int skinIdx = this.baseVariant;
 
-        entity.getSkinManager().setBaseVariant(skinidx);
+        entity.getSkinManager().setBaseVariant(skinIdx);
+        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinIdx);
 
-        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinidx);
+        entity.getSkinManager().clearExplicitSkin();
+        entity.getSkinManager().setDefaultSkin(false);
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/SKIN/SET] uuid={} baseVariant={} tracked={}",
+                this.npcUuid,
+                skinIdx,
+                entity.getDataTracker().get(NPCEntity.getTrackedSkinVariant())
+        );
     }
-
 }

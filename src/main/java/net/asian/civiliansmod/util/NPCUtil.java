@@ -1,6 +1,7 @@
 package net.asian.civiliansmod.util;
 
 import net.asian.civiliansmod.CiviliansMod;
+import net.asian.civiliansmod.entity.NPCEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
@@ -21,7 +22,6 @@ import java.util.stream.Stream;
 @Environment(EnvType.CLIENT)
 public class NPCUtil {
     public static final Map<Integer, SkinIdentifier> waitingSync = new HashMap<>();
-
 
     static final List<SkinIdentifier> skins = new ArrayList<>();
 
@@ -90,20 +90,16 @@ public class NPCUtil {
         }
 
         if (texture < 0 || texture >= skins.size()) {
-            CiviliansMod.LOGGER.warn("Invalid skin index {} (skins.size = {}). Using 0 as fallback.", texture, skins.size());
-            texture = 0;
+            CiviliansMod.LOGGER.error(
+                    "[NPCUtil] Invalid skin index {} (skins={}) – refusing fallback",
+                    texture, skins.size()
+            );
+            return null;
         }
 
         return skins.get(texture);
     }
 
-    private static void sortSkins() {
-        skins.sort(Comparator
-                .comparing((SkinIdentifier s) -> s.custom())
-                .thenComparing(s -> s.id().toString())
-                .thenComparing(s -> s.slim())
-        );
-    }
 
     /**
      * method to refresh all the npc textures.
@@ -112,16 +108,13 @@ public class NPCUtil {
         skins.clear();
         registerDefaultSkins();
         registerSlimSkins();
-
         registerDefaultCustomSkins();
         registerSlimCustomSkins();
 
-        sortSkins();
+        CiviliansMod.LOGGER.info("[CiviliansMod] NPC skins refreshed");
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
-
-        CiviliansMod.LOGGER.info("[CiviliansMod] Re-synced NPC skins after texture refresh");
     }
 
 
@@ -144,7 +137,9 @@ public class NPCUtil {
                         if (image.getHeight() != 64 || image.getWidth() != 64) {
                             return;
                         }
-                        String textureName = "custom_skin_" + file.getFileName().toString().toLowerCase();
+                        String originalFileName = file.getFileName().toString(); // skinfile name -> Sunny_(classic_texture)_JE1.png
+                        String safeName = originalFileName.toLowerCase().replaceAll("[^a-z0-9._-]", "_"); // attention! don't use similar symbols in identifier!!
+                        String textureName = "custom_skin_" + safeName;
                         NativeImageBackedTexture dynamicTexture = new NativeImageBackedTexture(() -> textureName, image);
                         Identifier textureId = Identifier.of(CiviliansMod.MOD_ID, textureName);
                         MinecraftClient.getInstance().getTextureManager().registerTexture(textureId, dynamicTexture);
@@ -185,10 +180,13 @@ public class NPCUtil {
             CiviliansMod.LOGGER.error("Failed to re-register NPC skin {}", skin.id(), e);
         }
     }
+
+    @Environment(EnvType.CLIENT)
     public static int getDeterministicSkinIndex(UUID uuid) {
         if (getSkins().isEmpty()) return -1;
         return Math.floorMod(uuid.hashCode(), getSkins().size());
     }
+
     public static void ensureSkinsLoaded() {
         if (!getSkins().isEmpty()) return;
 

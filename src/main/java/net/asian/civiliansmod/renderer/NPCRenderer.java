@@ -75,15 +75,17 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
         SkinIdentifier skin = entity.getSkinManager().getIdSkin();
         if (skin == null) {
-            CiviliansMod.LOGGER.error(
-                    "[FLASHBACK/RENDER/NULL] id={} baseVariant={}",
-                    entity.getId(),
-                    entity.getSkinManager().debugGetBaseVariant()
-            );
+            int idx = NPCUtil.getDeterministicSkinIndex(entity.getUuid());
+            if (idx >= 0) {
+                skin = NPCUtil.getNPCTexture(idx);
+            }
+        }
+        if (skin == null) {
             state.texture = DefaultSkinHelper.getTexture();
             state.slim = false;
             return;
         }
+
         state.texture = skin.id();
         state.slim = skin.slim();
 
