@@ -30,8 +30,6 @@ public class NPCUtil {
 
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
 
-    private static boolean sortedForNewSystem = false;
-
     public static boolean isSlim(int index) {
         if (skins.isEmpty()) {
             CiviliansMod.LOGGER.debug(
@@ -91,41 +89,32 @@ public class NPCUtil {
         }
 
         if (texture < 0 || texture >= skins.size()) {
-            CiviliansMod.LOGGER.warn("Invalid skin index {} (skins.size = {}). Using 0 as fallback.", texture, skins.size());
-            texture = 0;
+            CiviliansMod.LOGGER.error(
+                    "[NPCUtil] Invalid skin index {} (skins={}) – refusing fallback",
+                    texture, skins.size()
+            );
+            return null;
         }
 
         return skins.get(texture);
     }
 
-    public static void sortSkins() {
-        if (sortedForNewSystem) return;
-
-        skins.sort(Comparator
-                .comparing((SkinIdentifier s) -> s.custom())
-                .thenComparing(s -> s.id().toString())
-                .thenComparing(s -> s.slim())
-        );
-        sortedForNewSystem = true;
-
-        CiviliansMod.LOGGER.info("[CiviliansMod] Skins sorted for NEW NPC system");
-    }
 
     /**
      * method to refresh all the npc textures.
      */
     public static void refreshTextures() {
         skins.clear();
-        sortedForNewSystem = false;
         registerDefaultSkins();
         registerSlimSkins();
         registerDefaultCustomSkins();
         registerSlimCustomSkins();
 
+        CiviliansMod.LOGGER.info("[CiviliansMod] NPC skins refreshed");
+
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
 
-        CiviliansMod.LOGGER.info("[CiviliansMod] Re-synced NPC skins after texture refresh");
     }
 
 
@@ -191,10 +180,7 @@ public class NPCUtil {
             CiviliansMod.LOGGER.error("Failed to re-register NPC skin {}", skin.id(), e);
         }
     }
-    public static int getDeterministicSkinIndex(UUID uuid) {
-        if (getSkins().isEmpty()) return -1;
-        return Math.floorMod(uuid.hashCode(), getSkins().size());
-    }
+
     public static void ensureSkinsLoaded() {
         if (!getSkins().isEmpty()) return;
 

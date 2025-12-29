@@ -36,21 +36,17 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
 
         int skinIdx = this.baseVariant;
 
-        // 1) baseVariant speichern (Server-Truth)
         entity.getSkinManager().setBaseVariant(skinIdx);
-
-        // 2) trackedVariant synchronisieren
         entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinIdx);
 
-        // 3) WICHTIG: skinIdentifier NICHT anfassen!
-        // → der kommt entweder:
-        //   a) vom Client via ChangeSkinPayload
-        //   b) aus NBT beim nächsten Load
+        entity.getSkinManager().clearExplicitSkin();
+        entity.getSkinManager().setDefaultSkin(false);
 
         CiviliansMod.LOGGER.info(
-                "[NPC/SKIN/BASEVARIANT] id={} baseVariant={}",
-                entity.getId(),
-                skinIdx
+                "[NPC/SKIN/SET] uuid={} baseVariant={} tracked={}",
+                this.npcUuid,
+                skinIdx,
+                entity.getDataTracker().get(NPCEntity.getTrackedSkinVariant())
         );
     }
 }
