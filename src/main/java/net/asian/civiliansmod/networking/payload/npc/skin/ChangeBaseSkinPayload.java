@@ -2,6 +2,8 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -32,11 +34,23 @@ public record ChangeBaseSkinPayload(UUID npcUuid, int baseVariant) implements Cu
         if (!(context.player().getWorld() instanceof ServerWorld world)) return;
         if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
-        int skinidx = this.baseVariant;
+        int skinIdx = this.baseVariant;
 
-        entity.getSkinManager().setBaseVariant(skinidx);
+        // 1) baseVariant speichern (Server-Truth)
+        entity.getSkinManager().setBaseVariant(skinIdx);
 
-        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinidx);
+        // 2) trackedVariant synchronisieren
+        entity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinIdx);
+
+        // 3) WICHTIG: skinIdentifier NICHT anfassen!
+        // → der kommt entweder:
+        //   a) vom Client via ChangeSkinPayload
+        //   b) aus NBT beim nächsten Load
+
+        CiviliansMod.LOGGER.info(
+                "[NPC/SKIN/BASEVARIANT] id={} baseVariant={}",
+                entity.getId(),
+                skinIdx
+        );
     }
-
 }

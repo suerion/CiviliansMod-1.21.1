@@ -148,7 +148,9 @@ public class NPCUtil {
                         if (image.getHeight() != 64 || image.getWidth() != 64) {
                             return;
                         }
-                        String textureName = "custom_skin_" + file.getFileName().toString().toLowerCase();
+                        String originalFileName = file.getFileName().toString(); // skinfile name -> Sunny_(classic_texture)_JE1.png
+                        String safeName = originalFileName.toLowerCase().replaceAll("[^a-z0-9._-]", "_"); // attention! don't use similar symbols in identifier!!
+                        String textureName = "custom_skin_" + safeName;
                         NativeImageBackedTexture dynamicTexture = new NativeImageBackedTexture(() -> textureName, image);
                         Identifier textureId = Identifier.of(CiviliansMod.MOD_ID, textureName);
                         MinecraftClient.getInstance().getTextureManager().registerTexture(textureId, dynamicTexture);
