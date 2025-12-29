@@ -1,6 +1,7 @@
 package net.asian.civiliansmod.util;
 
 import net.asian.civiliansmod.CiviliansMod;
+import net.asian.civiliansmod.entity.NPCEntity;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
@@ -114,7 +115,6 @@ public class NPCUtil {
 
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.world == null) return;
-
     }
 
 
@@ -179,6 +179,12 @@ public class NPCUtil {
         } catch (IOException e) {
             CiviliansMod.LOGGER.error("Failed to re-register NPC skin {}", skin.id(), e);
         }
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static int getDeterministicSkinIndex(UUID uuid) {
+        if (getSkins().isEmpty()) return -1;
+        return Math.floorMod(uuid.hashCode(), getSkins().size());
     }
 
     public static void ensureSkinsLoaded() {

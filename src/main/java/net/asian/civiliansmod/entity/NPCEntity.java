@@ -86,8 +86,7 @@ public class NPCEntity extends PathAwareEntity {
 
     public boolean isLegacyNpc() {
         return this.skinManager.skinIdentifier == null
-                && this.skinManager.baseVariant >= 0
-                && this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0;
+                && this.skinManager.baseVariant >= 0;
     }
 
     public ChatManager getChatManager() { return chatManager; }
@@ -117,7 +116,6 @@ public class NPCEntity extends PathAwareEntity {
                     "[NPC/SPAWN] id={} skins not ready yet, delaying skin apply",
                     this.getId()
             );
-            NPCUtil.ensureSkinsLoaded();
         }
 
         int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
@@ -135,18 +133,6 @@ public class NPCEntity extends PathAwareEntity {
             return super.createSpawnPacket(entityTrackerEntry);
         }
         if (!this.skinManager.skinSynced) {
-
-            int tracked = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
-
-            if (tracked < 0 && this.skinManager.skinIdentifier == null) {
-                CiviliansMod.LOGGER.warn(
-                        "[NPC/SPAWN] id={} delaying skin sync (tracked={}, baseVariant={})",
-                        this.getId(),
-                        tracked,
-                        this.skinManager.baseVariant
-                );
-                return super.createSpawnPacket(entityTrackerEntry);
-            }
 
             SkinIdentifier skin = this.skinManager.getIdSkin();
             if (skin == null && this.skinManager.skinByteArray == null) {
@@ -206,13 +192,6 @@ public class NPCEntity extends PathAwareEntity {
         builder.add(IS_PAUSED, false);
         builder.add(IS_FOLLOWING, false);
         builder.add(TRACKED_SKIN_VARIANT, -1);
-/*
-        CiviliansMod.LOGGER.info(
-                "[NPC/DATATRACKER/INIT] id={} initial trackedVariant={}",
-                this.getId(),
-                -1
-        );*/
-
     }
 
     @Override
@@ -260,18 +239,21 @@ public class NPCEntity extends PathAwareEntity {
 
         this.skinManager.readNbt(nbt);
 
-// 1️⃣ baseVariant IMMER aus NBT lesen
         int nbtVariant = nbt.getInt("basevariant").orElse(-1);
         if (nbtVariant >= 0) {
             this.skinManager.baseVariant = nbtVariant;
         }
 
-// 2️⃣ Tracker hat Priorität
-        if (this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0 && this.skinManager.baseVariant >= 0) {
-            this.getDataTracker().set(TRACKED_SKIN_VARIANT, this.skinManager.baseVariant);
+        if (isLegacyNpc()
+                && this.getDataTracker().get(TRACKED_SKIN_VARIANT) < 0
+                && this.skinManager.baseVariant >= 0) {
+
+            this.getDataTracker().set(
+                    TRACKED_SKIN_VARIANT,
+                    this.skinManager.baseVariant
+            );
         }
 
-// 3️⃣ Logging
         CiviliansMod.LOGGER.info(
                 "[NPC/READ/NBT] id={} baseVariant={} tracked={} hasSkinId={}",
                 this.getId(),
@@ -598,6 +580,10 @@ public class NPCEntity extends PathAwareEntity {
                     tracked
             );
 
+            if (this.skinManager.hasExplicitSkinId()) {
+                return;
+            }
+
             if (tracked >= 0) {
                 SkinIdentifier skin = NPCUtil.getNPCTexture(tracked);
                 if (skin != null) {
@@ -609,7 +595,6 @@ public class NPCEntity extends PathAwareEntity {
                         "[NPC/TRACKED/SKIN] id={} invalid trackedVariant",
                         this.getId()
                 );
-                return;
             }
         }
     }
@@ -880,7 +865,6 @@ public class NPCEntity extends PathAwareEntity {
 
         public SkinIdentifier getIdSkin() {
 
-            // explizit gespeichert → IMMER verwenden
             if (this.skinIdentifier != null) {
                 return this.skinIdentifier;
             }
@@ -898,8 +882,7 @@ public class NPCEntity extends PathAwareEntity {
             if (tracked >= 0) {
                 return NPCUtil.getNPCTexture(tracked);
             }
-
-            return null;
+            return null; // need null, only renderer
         }
 
         void writeNbt(NbtCompound nbt) {

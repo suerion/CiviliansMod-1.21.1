@@ -396,6 +396,7 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
         //TODO fix
 
         NPCEntity previewNPC;
+        int idx = originalVariant >= 0 ? originalVariant : NPCUtil.getDeterministicSkinIndex(npc.getUuid());
         if (originalVariant == -1) {
             previewNPC = createBaseCenterPreviewNPC();
         } else {
@@ -572,9 +573,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         previewNPC.getSkinManager().setIdSkin(skin);
         previewNPC.getSkinManager().setSlim(skin.slim());
-        previewNPC.getSkinManager().setBaseVariant(skinIndex);
-
-        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinIndex);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -594,8 +592,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         previewNPC.getSkinManager().setIdSkin(skin);
         previewNPC.getSkinManager().setSlim(skin.slim());
-        previewNPC.getSkinManager().setBaseVariant(skinId);
-        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), skinId);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
@@ -619,8 +615,6 @@ public abstract class AbstractNPCScreen extends AbstractConfigScreen {
 
         previewNPC.getSkinManager().setIdSkin(skin);
         previewNPC.getSkinManager().setSlim(skin.slim());
-        previewNPC.getSkinManager().setBaseVariant(idx);
-        previewNPC.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
 
         // These properties disable animations and sounds during preview
         previewNPC.setAiDisabled(true);
