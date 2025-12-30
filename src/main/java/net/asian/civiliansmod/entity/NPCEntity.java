@@ -69,13 +69,13 @@ public class NPCEntity extends PathAwareEntity {
     private static final TrackedData<Boolean> IS_PAUSED = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> IS_FOLLOWING = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Boolean> IS_BATTLE_BUDDY = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
-    // FIX 1: Changed OPTIONAL_UUID to OPTIONAL_UNIQUE_ID
     private static final TrackedData<Optional<UUID>> OWNER_UUID = DataTracker.registerData(NPCEntity.class, CiviliansMod.OPTIONAL_UUID);
     private static final TrackedData<Float> WANDER_RADIUS = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.FLOAT);
     private static final TrackedData<BlockPos> WANDER_ANCHOR = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BLOCK_POS);
     private static final TrackedData<String> TRADE_PRESET = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.STRING);
     private static final TrackedData<Boolean> DIALOGUE_ORDERED = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.BOOLEAN);
     private static final TrackedData<Integer> DIALOGUE_INDEX = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
+    private static final TrackedData<Integer> TRACKED_SKIN_VARIANT = DataTracker.registerData(NPCEntity.class, TrackedDataHandlerRegistry.INTEGER);
 
     private float originalMaxHealth = 20.0f;
     // Combat system
@@ -111,6 +111,7 @@ public class NPCEntity extends PathAwareEntity {
 
             // Assign a deterministic default skin once (never in replay contexts).
             if (ModCompat.isRealServerWorld(world)
+                    && !ModCompat.isInReplay()
                     && this.skinManager.getBaseVariant() < 0
                     && this.skinManager.getSkinIdentifier() == null
                     && !this.hasCustomName()) {
@@ -120,8 +121,14 @@ public class NPCEntity extends PathAwareEntity {
                 Random seededRandom = Random.create(seed);
 
                 int max = 88;
-                this.skinManager.setBaseVariant(seededRandom.nextInt(max));
-                this.skinManager.setSlim(this.skinManager.getBaseVariant() > 43);
+
+                int variant = seededRandom.nextInt(max);
+
+                this.dataTracker.set(TRACKED_SKIN_VARIANT, variant);
+
+                // legacy / Flashback
+                this.skinManager.setBaseVariant(variant);
+                this.skinManager.setSlim(variant > 43);
 
                 // Deterministic name (avoids replay re-randomization).
                 this.nameManager.setDeterministicName(this.skinManager.isSlimModel(), seed);
@@ -144,6 +151,34 @@ public class NPCEntity extends PathAwareEntity {
         builder.add(WANDER_ANCHOR, this.getBlockPos());
         builder.add(DIALOGUE_ORDERED, false);
         builder.add(DIALOGUE_INDEX, 0);
+        builder.add(TRACKED_SKIN_VARIANT, -1);
+    }
+
+    @Override
+    public void onTrackedDataSet(TrackedData<?> data) {
+        super.onTrackedDataSet(data);
+
+        if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient && !ModCompat.isInReplay()) {
+            int variant = this.dataTracker.get(TRACKED_SKIN_VARIANT);
+
+            if (variant >= 0) {
+                NPCUtil.ensureSkinsLoaded(); // CLIENT ONLY
+                SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
+                if (skin != null) {
+                    this.skinManager.setIdSkin(skin);
+                    this.skinManager.setDefaultSkin(true);
+                    this.refreshSkinModel();
+                }
+            }
+        }
+    }
+
+    public void setTrackedSkinVariant(int variant) {
+        this.dataTracker.set(TRACKED_SKIN_VARIANT, variant);
+    }
+
+    public int getTrackedSkinVariant() {
+        return this.dataTracker.get(TRACKED_SKIN_VARIANT);
     }
 
     public static DefaultAttributeContainer.Builder createAttributes() {
@@ -257,14 +292,10 @@ public class NPCEntity extends PathAwareEntity {
 
         // loadSKIN
         this.skinManager.readNbt(readView);
-        if (this.skinManager.getSkinIdentifier() == null
-                && this.skinManager.getBaseVariant() >= 0
-                && !NPCUtil.getSkins().isEmpty()) {
-
-            SkinIdentifier skin =
-                    NPCUtil.getNPCTexture(this.skinManager.getBaseVariant());
-
-            this.skinManager.setIdSkin(skin);
+        if (!ModCompat.isInReplay()) {
+            if (this.getTrackedSkinVariant() < 0 && this.skinManager.getBaseVariant() >= 0) {
+                this.setTrackedSkinVariant(this.skinManager.getBaseVariant());
+            }
         }
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
@@ -296,6 +327,7 @@ public class NPCEntity extends PathAwareEntity {
         }
     }
     public boolean isFollowing() { return this.dataTracker.get(IS_FOLLOWING); }
+
     public void setFollowing(boolean following, @Nullable PlayerEntity owner) {
         if (this.isPaused() && following) {
             return;
@@ -620,10 +652,13 @@ public class NPCEntity extends PathAwareEntity {
                 for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.isSlimModel(), this.skinManager.getSkinByteArray()));
                 }
-            } else if (skin != null && skin.id() != null) {
-                // Default Skin
-                for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
-                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skin.id(), skin.slim()));
+            } else {
+                int variant = this.getTrackedSkinVariant();
+
+                if (variant >= 0) {
+                    for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
+                        ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), variant));
+                    }
                 }
             }
         }

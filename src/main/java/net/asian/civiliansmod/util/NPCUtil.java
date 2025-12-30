@@ -26,12 +26,9 @@ import net.minecraft.util.Identifier;
 public class NPCUtil {
     public static final Map<Integer, SkinIdentifier> waitingSync = new HashMap<>();
 
-
     static final List<SkinIdentifier> skins = new ArrayList<>();
 
-    public static List<SkinIdentifier> getSkins() {
-        return skins;
-    }
+    public static List<SkinIdentifier> getSkins() { return skins; }
 
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
 
@@ -39,21 +36,33 @@ public class NPCUtil {
         return skins.get(index).slim();
     }
 
+    private static boolean loaded = false;
+
+    public static void ensureSkinsLoaded() {
+        if (loaded) return;
+        loaded = true;
+        refreshTextures();
+    }
+
 
     private static void registerDefaultSkins() {
-        MinecraftClient.getInstance().getResourceManager().findResources("textures/entity/npc/wide", path -> path.toString().endsWith(".png")).forEach((id, resource) -> {
-            skins.add(new SkinIdentifier(id, false, false));
-        });
+        MinecraftClient.getInstance().getResourceManager()
+                .findResources("textures/entity/npc/wide", path -> path.toString().endsWith(".png"))
+                .entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> skins.add(new SkinIdentifier(e.getKey(), false, false)));
     }
 
     private static void registerSlimSkins() {
-        MinecraftClient.getInstance().getResourceManager().findResources("textures/entity/npc/slim", path -> path.toString().endsWith(".png")).forEach((id, resource) -> {
-            skins.add(new SkinIdentifier(id, true, false));
-        });
+        MinecraftClient.getInstance().getResourceManager()
+                .findResources("textures/entity/npc/slim", path -> path.toString().endsWith(".png"))
+                .entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .forEach(e -> skins.add(new SkinIdentifier(e.getKey(), true, false)));
     }
 
     private static void registerDefaultCustomSkins() {
-        try (var files = Files.list(FolderUtil.WIDE_SKIN_PATH)) {
+        try (var files = Files.list(FolderUtil.WIDE_SKIN_PATH).sorted()) {
             searchAndConvertSkins(files, false);
         } catch (
                 IOException e) {
@@ -63,7 +72,7 @@ public class NPCUtil {
     }
 
     private static void registerSlimCustomSkins() {
-        try (var files = Files.list(FolderUtil.SLIM_SKIN_PATH)) {
+        try (var files = Files.list(FolderUtil.SLIM_SKIN_PATH).sorted()) {
             searchAndConvertSkins(files, true);
         } catch (
                 IOException e) {
@@ -75,7 +84,7 @@ public class NPCUtil {
     public static SkinIdentifier getNPCTexture(int texture) {
         if (skins.isEmpty()) {
             CiviliansMod.LOGGER.error("Tried to get NPC skin but no skins are loaded!");
-            return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, true);
+            return new SkinIdentifier(Identifier.of("minecraft", "textures/entity/steve.png"), false, false);
         }
 
         if (texture < 0 || texture >= skins.size()) {
@@ -107,12 +116,6 @@ public class NPCUtil {
      * @param files the {@code Stream<Path>} that represents the files in the directory.
      */
     private static void searchAndConvertSkins(Stream<@NotNull Path> files, boolean slim) {
-        try {
-            final var i = new AtomicInteger();
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
         files.forEach((file) -> {
             if (file.getFileName().toString().endsWith(".png")) {
                 try {
@@ -124,7 +127,7 @@ public class NPCUtil {
                         if (image.getHeight() != 64 || image.getWidth() != 64) {
                             return;
                         }
-                        String textureName = "custom_skin_" + UUID.randomUUID();
+                        String textureName = "custom_skin_" + file.getFileName().toString().replace(".png", "");
                         NativeImageBackedTexture dynamicTexture = new NativeImageBackedTexture(() -> textureName, image);
                         Identifier textureId = Identifier.of(CiviliansMod.MOD_ID, textureName);
                         MinecraftClient.getInstance().getTextureManager().registerTexture(textureId, dynamicTexture);

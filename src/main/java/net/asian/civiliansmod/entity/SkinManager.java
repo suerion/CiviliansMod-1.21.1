@@ -67,21 +67,7 @@ public class SkinManager {
     }
 
     public SkinIdentifier getIdSkin() {
-        if (this.skinIdentifier != null) {
-            return this.skinIdentifier;
-        }
-
-        if (NPCUtil.getSkins().isEmpty()) {
-            return null;
-        }
-
-        if (this.baseVariant >= 0) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
-            if (skin != null) {
-                return skin;
-            }
-        }
-        return NPCUtil.getNPCTexture(0);
+        return this.skinIdentifier;
     }
 
     public SkinIdentifier getSkinIdentifier() {
