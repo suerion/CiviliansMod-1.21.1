@@ -103,6 +103,10 @@ public class NPCEntity extends PathAwareEntity {
     public void onSpawnPacket(EntitySpawnS2CPacket packet) {
         super.onSpawnPacket(packet);
 
+        if (CiviliansMod.isFlashbackReplay()) {
+            NPCUtil.ensureSkinsLoaded();
+        }
+
         if (this.isLegacyNpc()) {
             return;
         }
@@ -839,6 +843,8 @@ public class NPCEntity extends PathAwareEntity {
 
         boolean defaultSkin;
 
+        boolean debugLogged = false;
+
         public SkinManager(NPCEntity npcEntity) {
             this.npcEntity = npcEntity;
             this.defaultSkin = true;
@@ -865,12 +871,12 @@ public class NPCEntity extends PathAwareEntity {
 
         public SkinIdentifier getIdSkin() {
 
-            if (this.skinIdentifier != null) {
-                return this.skinIdentifier;
-            }
-
             if (!npcEntity.getWorld().isClient) {
                 return null;
+            }
+
+            if (this.skinIdentifier != null) {
+                return this.skinIdentifier;
             }
 
             // Legacy
@@ -968,17 +974,18 @@ public class NPCEntity extends PathAwareEntity {
             this.slim = skin.slim();
             this.defaultSkin = false;
             this.skinSynced = true;
-/*
-            CiviliansMod.LOGGER.info(
-                    "[NPC/SKIN/APPLY] id={} skin={} slim={} custom={} baseVariant={}",
-                    npcEntity.getId(),
-                    skin.id(),
-                    skin.slim(),
-                    skin.custom(),
-                    baseVariant
-            );
 
- */
+            if (!debugLogged) {
+                CiviliansMod.LOGGER.info(
+                        "[NPC/SKIN/DEBUG] id={} skin={} baseVariant={} tracked={}",
+                        npcEntity.getId(),
+                        skin.id(),
+                        baseVariant,
+                        npcEntity.getDataTracker().get(TRACKED_SKIN_VARIANT)
+                );
+                debugLogged = true;
+            }
+
             if (this.skinIdentifier != null) {
                 CiviliansMod.LOGGER.info(
                         "[NPC/SKIN/FINAL] id={} skin={} tracked={} baseVariant={}",

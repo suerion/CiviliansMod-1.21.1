@@ -89,6 +89,7 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         state.texture = skin.id();
         state.slim = skin.slim();
 
+        /*
         CiviliansMod.LOGGER.info(
                 "[NPC/RENDER] id={} flashback={} tracked={} baseVariant={} skinId={} slim={} defaultSkin={} skinBytes={}",
                 entity.getId(),
@@ -100,5 +101,6 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
                 entity.getSkinManager().isDefaultSkin(),
                 entity.getSkinManager().debugGetSkinBytesLen()
         );
+         */
     }
 }

@@ -31,6 +31,10 @@ public class NPCUtil {
 
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
 
+    private static boolean skinsPrepared = false;
+
+    private static boolean skinsRegistered = false;
+
     public static boolean isSlim(int index) {
         if (skins.isEmpty()) {
             CiviliansMod.LOGGER.debug(
@@ -117,13 +121,89 @@ public class NPCUtil {
         if (client.world == null) return;
     }
 
+    @Environment(EnvType.CLIENT)
+    public static void prepareSkinsIO() {
+        if (skinsPrepared) return;
 
+        skins.clear();
+        images.clear();
+
+        registerDefaultSkins();
+        registerSlimSkins();
+        registerDefaultCustomSkins();
+        registerSlimCustomSkins();
+
+        skinsPrepared = true;
+
+        CiviliansMod.LOGGER.info("[NPCUtil] Skins prepared (IO)");
+    }
+
+    @Environment(EnvType.CLIENT)
+    public static void registerSkinsRenderThread() {
+        if (skinsRegistered) return;
+
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null) return;
+
+        for (Map.Entry<SkinIdentifier, byte[]> entry : images.entrySet()) {
+            try {
+                NativeImage image = NativeImage.read(entry.getValue());
+                NativeImageBackedTexture texture =
+                        new NativeImageBackedTexture(() -> entry.getKey().id().toString(), image);
+
+                client.getTextureManager().registerTexture(entry.getKey().id(), texture);
+            } catch (Exception e) {
+                CiviliansMod.LOGGER.error(
+                        "[NPCUtil] Failed to register skin {}", entry.getKey().id(), e
+                );
+            }
+        }
+
+        skinsRegistered = true;
+
+        CiviliansMod.LOGGER.info("[NPCUtil] Skins registered (RenderThread)");
+    }
+
+    private static void searchAndConvertSkins(Stream<@NotNull Path> files, boolean slim) {
+        files.sorted().forEach(file -> {
+            if (!file.getFileName().toString().endsWith(".png")) return;
+
+            try (InputStream stream = Files.newInputStream(file)) {
+                byte[] skinBytes = stream.readAllBytes();
+
+                NativeImage image = NativeImage.read(skinBytes);
+                if (image.getWidth() != 64 || image.getHeight() != 64) {
+                    image.close();
+                    return;
+                }
+                image.close();
+
+                String safeName = file.getFileName().toString()
+                        .toLowerCase()
+                        .replaceAll("[^a-z0-9._-]", "_");
+
+                Identifier textureId = Identifier.of(
+                        CiviliansMod.MOD_ID,
+                        "custom_skin_" + safeName
+                );
+
+                SkinIdentifier skin = new SkinIdentifier(textureId, slim, true);
+                skins.add(skin);
+                images.put(skin, skinBytes);
+
+            } catch (Exception e) {
+                CiviliansMod.LOGGER.error("Error while converting skin files", e);
+            }
+        });
+    }
+
+    /*
     /**
      * Method to convert an image to an Identifier used to display skins.
      * The method will verify for each file that it is a png file and that has the good dimension({@code 64x64} pixels
      *
      * @param files the {@code Stream<Path>} that represents the files in the directory.
-     */
+
     private static void searchAndConvertSkins(Stream<@NotNull Path> files, boolean slim) {
         AtomicInteger i = new AtomicInteger();
         files.sorted().forEach((file) -> {
@@ -157,6 +237,7 @@ public class NPCUtil {
             }
         });
     }
+    */
 
     public static void registerSkin(){
     }
@@ -187,10 +268,23 @@ public class NPCUtil {
         return Math.floorMod(uuid.hashCode(), getSkins().size());
     }
 
+    /* old ensureSkins...
     public static void ensureSkinsLoaded() {
         if (!getSkins().isEmpty()) return;
 
         CiviliansMod.LOGGER.info("[FLASHBACK] Loading NPC skins manually");
         refreshTextures();
+    }
+    */
+
+    @Environment(EnvType.CLIENT)
+    public static void ensureSkinsLoaded() {
+        if (skinsRegistered) return;
+
+        prepareSkinsIO();
+
+        MinecraftClient.getInstance().execute(
+                NPCUtil::registerSkinsRenderThread
+        );
     }
 }
