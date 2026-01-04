@@ -12,7 +12,8 @@ import net.asian.civiliansmod.networking.payload.npc.dialogue.ClientDialogueSync
 import net.asian.civiliansmod.networking.payload.npc.dialogue.DialogueSyncPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.OpenScreenDialoguesPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
+import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayloadV1;
+import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayloadV2;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.api.EnvType;
@@ -21,9 +22,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.texture.AbstractTexture;
-import net.minecraft.client.texture.NativeImageBackedTexture;
-import net.minecraft.client.texture.TextureManager;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.ai.goal.LookAroundGoal;
 import net.minecraft.entity.ai.goal.WanderAroundFarGoal;
@@ -38,7 +36,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import net.minecraft.network.listener.ClientPlayPacketListener;
@@ -95,6 +92,11 @@ public class NPCEntity extends PathAwareEntity {
         return TRACKED_SKIN_VARIANT;
     }
 
+    public void setTrackedSkinVariant(int variant) {
+        this.dataTracker.set(TRACKED_SKIN_VARIANT, variant);
+    }
+
+
     NameManager nameManager = new NameManager(this);
     SkinManager skinManager = new SkinManager(this);
     ChatManager chatManager = new ChatManager(this);
@@ -144,10 +146,21 @@ public class NPCEntity extends PathAwareEntity {
             }
 
             if (this.skinManager.skinByteArray == null) {
-                for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
-                    ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), skin.id(), skin.slim()));
+                boolean sentSkin = false;
+
+                if (!CiviliansMod.isFlashbackReplay()) {
+                    int variant = this.getDataTracker().get(TRACKED_SKIN_VARIANT);
+                    if (variant >= 0) {
+                        for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
+                            ServerPlayNetworking.send(player, new SyncSkinPayloadV2(this.getId(), variant));
+                        }
+                        sentSkin = true;
+                    }
                 }
-                this.skinManager.skinSynced = true;
+
+                if (sentSkin) {
+                    this.skinManager.skinSynced = true;
+                }
             } else {
                 for (ServerPlayerEntity player : Objects.requireNonNull(this.getWorld().getServer()).getPlayerManager().getPlayerList()) {
                     ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.slim, this.skinManager.skinByteArray));
@@ -870,11 +883,6 @@ public class NPCEntity extends PathAwareEntity {
         }
 
         public SkinIdentifier getIdSkin() {
-
-            if (!npcEntity.getWorld().isClient) {
-                return null;
-            }
-
             if (this.skinIdentifier != null) {
                 return this.skinIdentifier;
             }

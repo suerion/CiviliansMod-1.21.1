@@ -2,10 +2,7 @@ package net.asian.civiliansmod.networking;
 
 import net.asian.civiliansmod.networking.payload.npc.NpcSpawnPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.*;
-import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
+import net.asian.civiliansmod.networking.payload.npc.skin.*;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.packet.CustomPayload;
@@ -29,7 +26,8 @@ public class NetworkPayloads {
         registerS2C(ClientNpcSkinPayload.ID, ClientNpcSkinPayload.CODEC);
         registerS2C(NpcSpawnPayload.ID, NpcSpawnPayload.CODEC);
         registerS2C(DialogueSyncPayload.ID, DialogueSyncPayload.CODEC);
-        registerS2C(SyncSkinPayload.ID, SyncSkinPayload.CODEC);
+        registerS2C(SyncSkinPayloadV1.ID, SyncSkinPayloadV1.CODEC);
+        registerS2C(SyncSkinPayloadV2.ID, SyncSkinPayloadV2.CODEC);
     }
 
 

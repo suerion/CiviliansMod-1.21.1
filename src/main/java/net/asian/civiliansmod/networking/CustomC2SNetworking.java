@@ -1,12 +1,8 @@
 package net.asian.civiliansmod.networking;
 
-import net.asian.civiliansmod.networking.payload.npc.NpcSpawnPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.*;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 public class CustomC2SNetworking {
@@ -23,7 +19,4 @@ public class CustomC2SNetworking {
     }
     public static void intialize() {
     }
-
-
-
 }

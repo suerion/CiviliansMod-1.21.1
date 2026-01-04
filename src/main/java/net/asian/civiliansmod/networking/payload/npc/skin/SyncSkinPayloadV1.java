@@ -13,16 +13,16 @@ import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
 
-public record SyncSkinPayload(int npcId, Identifier skinId, boolean slim) implements CustomPayload {
-    public static final CustomPayload.Id<SyncSkinPayload> ID = new CustomPayload.Id<>(Identifier.of(CiviliansMod.MOD_ID, "sync_skin_payload"));
+public record SyncSkinPayloadV1(int npcId, Identifier skinId, boolean slim) implements CustomPayload {
+    public static final CustomPayload.Id<SyncSkinPayloadV1> ID = new CustomPayload.Id<>(Identifier.of(CiviliansMod.MOD_ID, "sync_skin_payload_v1"));
 
-    public static final PacketCodec<RegistryByteBuf, SyncSkinPayload> CODEC = PacketCodec.tuple(
-            PacketCodecs.INTEGER, SyncSkinPayload::npcId,
+    public static final PacketCodec<RegistryByteBuf, SyncSkinPayloadV1> CODEC = PacketCodec.tuple(
+            PacketCodecs.INTEGER, SyncSkinPayloadV1::npcId,
             PacketCodecs.STRING,
             payload -> payload.skinId().toString(),
-            PacketCodecs.BOOLEAN, SyncSkinPayload::slim,
+            PacketCodecs.BOOLEAN, SyncSkinPayloadV1::slim,
             (npcId, skinIdString, slim) ->
-                    new SyncSkinPayload(npcId, Identifier.of(skinIdString), slim)
+                    new SyncSkinPayloadV1(npcId, Identifier.of(skinIdString), slim)
     );
 
     @Override
@@ -45,10 +45,12 @@ public record SyncSkinPayload(int npcId, Identifier skinId, boolean slim) implem
             npcEntity.getSkinManager().setIdSkin(skin);
             npcEntity.getSkinManager().setSlim(slim);
 
-            int idx = NPCUtil.getSkins().indexOf(skin);
-            if (idx >= 0) {
-                npcEntity.getSkinManager().setBaseVariant(idx);
-                npcEntity.getDataTracker().set(NPCEntity.getTrackedSkinVariant(), idx);
+            if (!NPCUtil.getSkins().isEmpty()) {
+                int idx = NPCUtil.getSkins().indexOf(skin);
+                if (idx >= 0) {
+                    npcEntity.getSkinManager().setBaseVariant(idx);
+                    npcEntity.getSkinManager().setDefaultSkin(true);
+                }
             }
         }
     }
