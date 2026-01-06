@@ -793,7 +793,6 @@ public abstract class AbstractNPCScreen extends Screen {
 
         SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         if (id.custom()) {
             byte[] data = NPCUtil.images.get(id);
@@ -819,7 +818,6 @@ public abstract class AbstractNPCScreen extends Screen {
 
         // Set identifier (Slim + Path)
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         // Custom skin data must be re-applied manually
         if (id.custom()) {
@@ -850,7 +848,6 @@ public abstract class AbstractNPCScreen extends Screen {
 
         SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         if (id.custom()) {
             byte[] data = NPCUtil.images.get(id);
@@ -893,12 +890,10 @@ public abstract class AbstractNPCScreen extends Screen {
         if (selected.custom()) {
             npc.getSkinManager().setSkinByteArray(data);
             npc.getSkinManager().setIdSkin(selected);
-            npc.getSkinManager().setSlim(selected.slim());
             npc.getSkinManager().setDefaultSkin(false);
-            ClientPlayNetworking.send(new ChangeSkinPayload( npc.getUuid(), selected.slim(), selected));
+            ClientPlayNetworking.send(new ChangeSkinPayload(npc.getUuid(), selected));
         } else {
-            npc.getSkinManager().setBaseVariant(selectedSkinIndex);
-            npc.getSkinManager().setSlim(selectedSkinIndex > 43);
+            npc.setTrackedSkinVariant(selectedSkinIndex);
             npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex));
             npc.getSkinManager().setDefaultSkin(true);
             ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), selectedSkinIndex));

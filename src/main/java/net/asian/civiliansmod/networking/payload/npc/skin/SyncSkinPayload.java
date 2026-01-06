@@ -2,6 +2,7 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -32,7 +33,7 @@ public record SyncSkinPayload(int npcId, int skinVariant) implements CustomPaylo
         ClientWorld world = context.player().clientWorld;
         Entity entity = world.getEntityById(this.npcId);
 
-        if (entity instanceof NPCEntity npc) {
+        if (entity instanceof NPCEntity npc && !ModCompat.isInReplay()) {
             npc.setTrackedSkinVariant(this.skinVariant);
         }
     }

@@ -29,12 +29,8 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
             ChangeSkinPayload::new
     );
 
-    public ChangeSkinPayload(UUID npcUuid, boolean slim, SkinIdentifier skinIdentifier) {
-        this(
-                npcUuid,
-                slim,
-                NPCUtil.images.getOrDefault(skinIdentifier, new byte[0])
-        );
+    public ChangeSkinPayload(UUID npcUuid, SkinIdentifier skinIdentifier) {
+        this(npcUuid, skinIdentifier.slim(), NPCUtil.images.getOrDefault(skinIdentifier, new byte[0]));
     }
 
     @Override
@@ -49,11 +45,10 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
         //if (skin.length != 16384) return;
 
         entity.getSkinManager().setSkinByteArray(skin);
-        entity.getSkinManager().setSlim(slim);
         entity.getSkinManager().setDefaultSkin(false);
 
         for (ServerPlayerEntity player : world.getPlayers()) {
-            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin)
+            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), this.slim, skin)
             );
         }
     }

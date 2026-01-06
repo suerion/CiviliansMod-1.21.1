@@ -126,9 +126,8 @@ public class NPCEntity extends PathAwareEntity {
 
                 this.dataTracker.set(TRACKED_SKIN_VARIANT, variant);
 
-                // legacy / Flashback
+                // only info
                 this.skinManager.setBaseVariant(variant);
-                this.skinManager.setSlim(variant > 43);
 
                 // Deterministic name (avoids replay re-randomization).
                 this.nameManager.setDeterministicName(this.skinManager.isSlimModel(), seed);
@@ -161,12 +160,15 @@ public class NPCEntity extends PathAwareEntity {
         if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient && !ModCompat.isInReplay()) {
             int variant = this.dataTracker.get(TRACKED_SKIN_VARIANT);
 
+            if (this.skinManager.getSkinIdentifier() != null && this.skinManager.getSkinByteArray() != null) {
+                return;
+            }
+
             if (variant >= 0) {
                 NPCUtil.ensureSkinsLoaded(); // CLIENT ONLY
                 SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
                 if (skin != null) {
                     this.skinManager.setIdSkin(skin);
-                    this.skinManager.setDefaultSkin(true);
                     this.refreshSkinModel();
                 }
             }
@@ -292,11 +294,6 @@ public class NPCEntity extends PathAwareEntity {
 
         // loadSKIN
         this.skinManager.readNbt(readView);
-        if (!ModCompat.isInReplay()) {
-            if (this.getTrackedSkinVariant() < 0 && this.skinManager.getBaseVariant() >= 0) {
-                this.setTrackedSkinVariant(this.skinManager.getBaseVariant());
-            }
-        }
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);
@@ -550,6 +547,7 @@ public class NPCEntity extends PathAwareEntity {
 
     @Environment(EnvType.CLIENT)
     public void openCustomNPCScreen() {
+        this.migrateLegacySkinIfNeeded();
         MinecraftClient client = MinecraftClient.getInstance();
         if (client == null) return;
 
@@ -655,6 +653,10 @@ public class NPCEntity extends PathAwareEntity {
             } else {
                 int variant = this.getTrackedSkinVariant();
 
+                if (variant < 0) {
+                    variant = this.skinManager.getBaseVariant(); // LEGACY READ ONLY
+                }
+
                 if (variant >= 0) {
                     for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
                         ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), variant));
@@ -696,5 +698,15 @@ public class NPCEntity extends PathAwareEntity {
         if (newCount >= 2) {
             this.setTarget(attacker);
         }
+    }
+
+    public void migrateLegacySkinIfNeeded() {
+        if (ModCompat.isInReplay()) return;
+        if (this.getTrackedSkinVariant() >= 0) return;
+
+        int legacy = this.skinManager.getBaseVariant();
+        if (legacy < 0) return;
+
+        this.setTrackedSkinVariant(legacy);
     }
 }

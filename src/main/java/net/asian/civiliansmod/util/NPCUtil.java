@@ -33,6 +33,8 @@ public class NPCUtil {
     public static Map<SkinIdentifier, byte[]> images = new HashMap<>();
 
     public static boolean isSlim(int index) {
+        if (skins.isEmpty()) return false;
+        if (index < 0 || index >= skins.size()) return false;
         return skins.get(index).slim();
     }
 
@@ -89,12 +91,10 @@ public class NPCUtil {
 
         if (texture < 0 || texture >= skins.size()) {
             CiviliansMod.LOGGER.warn("Invalid skin index {} (skins.size = {}). Using 0 as fallback.", texture, skins.size());
-            texture = 0;
+            return null;
         }
-
         return skins.get(texture);
     }
-
 
     /**
      * method to refresh all the npc textures.
@@ -149,6 +149,4 @@ public class NPCUtil {
     public static void registerSkin(){
 
     }
-
-
 }

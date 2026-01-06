@@ -23,7 +23,6 @@ public class SkinManager {
     private SkinIdentifier skinIdentifier;
 
     private int baseVariant;
-    private boolean slim;
     private boolean defaultSkin;
 
     // Used to ensure we do not spam sync packets for the same entity.
@@ -38,18 +37,11 @@ public class SkinManager {
         // Important for replay mods (e.g. Flashback): do NOT assign random skins here.
         // Server-side default skin assignment is handled once in NPCEntity when appropriate.
         this.baseVariant = -1;
-        this.slim = false;
         this.skinSynced = false;
     }
 
-    public boolean isSlim() {
-        return slim;
-    }
-
-    public void setSlim(boolean slim) {
-        this.slim = slim;
-    }
-
+    // LEGACY ONLY – must never be written after migration
+    @Deprecated(forRemoval = false)
     public void setBaseVariant(int baseVariant) {
         this.baseVariant = baseVariant;
     }
@@ -64,6 +56,7 @@ public class SkinManager {
 
     public void setIdSkin(SkinIdentifier skin) {
         this.skinIdentifier = skin;
+        this.defaultSkin = skin != null && !skin.custom();
     }
 
     public SkinIdentifier getIdSkin() {
@@ -85,7 +78,14 @@ public class SkinManager {
             NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> id.getPath(), img);
             MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
 
+            boolean slim = false;
+
+            if (npcEntity.getTrackedSkinVariant() >= 0) {
+                slim = npcEntity.getTrackedSkinVariant() > 43;
+            }
+
             this.skinIdentifier = new SkinIdentifier(id, slim, true);
+            this.defaultSkin = false;
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("Failed to upload NPC custom skin", e);
         }
@@ -93,7 +93,6 @@ public class SkinManager {
 
     void writeView(WriteView writeView) {
         writeView.putInt("basevariant", baseVariant);
-        writeView.putBoolean("slim", slim);
         writeView.putBoolean("defaultSkin", defaultSkin);
 
         if (skinByteArray != null) {
@@ -103,7 +102,6 @@ public class SkinManager {
 
     void readNbt(ReadView readView) {
         this.baseVariant = readView.getInt("basevariant", -1);
-        this.slim = readView.getBoolean("slim", this.baseVariant > 43);
         this.defaultSkin = readView.getBoolean("defaultSkin", true);
 
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
@@ -134,11 +132,17 @@ public class SkinManager {
     }
 
     public boolean isSlimModel() {
-        return slim;
+        if (skinIdentifier != null) {
+            return skinIdentifier.slim();
+        }
+        int tracked = npcEntity.getTrackedSkinVariant();
+        return tracked >= 0 && tracked > 43;
     }
+
     public boolean isDefaultSkin() {
         return defaultSkin;
     }
+
     public void setDefaultSkin(boolean value) {
         this.defaultSkin = value;
     }
