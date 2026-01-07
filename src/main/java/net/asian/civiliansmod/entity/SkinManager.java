@@ -49,9 +49,6 @@ public class SkinManager {
     public void setSkinByteArray(byte[] skinByteArray) {
         this.skinByteArray = skinByteArray;
         this.defaultSkin = false;
-        if (MinecraftClient.getInstance() != null) {
-            uploadDynamicTexture();
-        }
     }
 
     public void setIdSkin(SkinIdentifier skin) {
@@ -108,10 +105,6 @@ public class SkinManager {
         if (skin.isPresent()) {
             this.skinByteArray = skin.get().skin;
             this.defaultSkin = false;
-
-            if (MinecraftClient.getInstance() != null) {
-                uploadDynamicTexture();
-            }
         }
     }
 

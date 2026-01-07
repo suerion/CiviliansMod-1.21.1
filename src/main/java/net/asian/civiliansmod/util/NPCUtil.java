@@ -43,7 +43,9 @@ public class NPCUtil {
     public static void ensureSkinsLoaded() {
         if (loaded) return;
         loaded = true;
+
         refreshTextures();
+        MinecraftClient.getInstance().execute(NPCUtil::registerSkinsRenderThread);
     }
 
 
@@ -108,7 +110,6 @@ public class NPCUtil {
         registerSlimCustomSkins();
     }
 
-
     /**
      * Method to convert an image to an Identifier used to display skins.
      * The method will verify for each file that it is a png file and that has the good dimension({@code 64x64} pixels
@@ -127,10 +128,9 @@ public class NPCUtil {
                         if (image.getHeight() != 64 || image.getWidth() != 64) {
                             return;
                         }
-                        String textureName = "custom_skin_" + file.getFileName().toString().replace(".png", "");
-                        NativeImageBackedTexture dynamicTexture = new NativeImageBackedTexture(() -> textureName, image);
+                        String safeName = file.getFileName().toString().toLowerCase().replace(".png", "").replaceAll("[^a-z0-9._-]", "_");
+                        String textureName = "custom_skin_" + safeName;
                         Identifier textureId = Identifier.of(CiviliansMod.MOD_ID, textureName);
-                        MinecraftClient.getInstance().getTextureManager().registerTexture(textureId, dynamicTexture);
                         skins.add(new SkinIdentifier(textureId, slim, true));
                         images.put(skins.getLast(), skin);
 
@@ -146,7 +146,19 @@ public class NPCUtil {
         });
     }
 
-    public static void registerSkin(){
+    public static void registerSkinsRenderThread() {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client == null) return;
 
+        for (Map.Entry<SkinIdentifier, byte[]> entry : images.entrySet()) {
+            try {
+                NativeImage image = NativeImage.read(entry.getValue());
+                NativeImageBackedTexture texture = new NativeImageBackedTexture(() -> entry.getKey().id().getPath(), image);
+
+                client.getTextureManager().registerTexture(entry.getKey().id(), texture);
+            } catch (Exception e) {
+                CiviliansMod.LOGGER.error("[NPCUtil] Failed to register skin {}", entry.getKey().id(), e);
+            }
+        }
     }
 }

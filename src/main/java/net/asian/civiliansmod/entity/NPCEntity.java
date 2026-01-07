@@ -586,8 +586,11 @@ public class NPCEntity extends PathAwareEntity {
 
         if (!this.skinManager.isDefaultSkin()) {
             this.calculateDimensions();
+            this.velocityDirty = true;
+            this.age = 0;
+
             if (DEBUG_TEXTURE) {
-                CiviliansMod.LOGGER.info("[Client] RefreshSkinModel(): custom skin – no reload.");
+                CiviliansMod.LOGGER.info("[Client] RefreshSkinModel(): custom skin – entity invalidated");
             }
             return;
         }
@@ -648,6 +651,11 @@ public class NPCEntity extends PathAwareEntity {
             // Custom Skin
             if (this.skinManager.getSkinByteArray() != null) {
                 for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
+                    CiviliansMod.LOGGER.info(
+                            "[Server] Broadcasting CUSTOM skin npc={} bytes={}",
+                            this.getUuid(),
+                            this.skinManager.getSkinByteArray() == null ? -1 : this.skinManager.getSkinByteArray().length
+                    );
                     ServerPlayNetworking.send(player, new ClientNpcSkinPayload(this.getId(), this.skinManager.isSlimModel(), this.skinManager.getSkinByteArray()));
                 }
             } else {
@@ -659,6 +667,11 @@ public class NPCEntity extends PathAwareEntity {
 
                 if (variant >= 0) {
                     for (ServerPlayerEntity player : this.getWorld().getServer().getPlayerManager().getPlayerList()) {
+                        CiviliansMod.LOGGER.info(
+                                "[Server] Broadcasting BASE skin npc={} variant={}",
+                                this.getUuid(),
+                                variant
+                        );
                         ServerPlayNetworking.send(player, new SyncSkinPayload(this.getId(), variant));
                     }
                 }

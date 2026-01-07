@@ -29,8 +29,8 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
             ChangeSkinPayload::new
     );
 
-    public ChangeSkinPayload(UUID npcUuid, SkinIdentifier skinIdentifier) {
-        this(npcUuid, skinIdentifier.slim(), NPCUtil.images.getOrDefault(skinIdentifier, new byte[0]));
+    public ChangeSkinPayload(NPCEntity npc) {
+        this(npc.getUuid(), npc.getSkinManager().isSlimModel(), npc.getSkinManager().getSkinByteArray());
     }
 
     @Override

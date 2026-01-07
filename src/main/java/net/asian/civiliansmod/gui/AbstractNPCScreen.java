@@ -1,5 +1,6 @@
 package net.asian.civiliansmod.gui;
 
+import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
@@ -795,7 +796,7 @@ public abstract class AbstractNPCScreen extends Screen {
         preview.getSkinManager().setIdSkin(id);
 
         if (id.custom()) {
-            byte[] data = NPCUtil.images.get(id);
+            byte[] data = npc.getSkinManager().getSkinByteArray();
             if (data != null) preview.getSkinManager().setSkinByteArray(data);
             preview.getSkinManager().setDefaultSkin(false);
         } else {
@@ -821,7 +822,7 @@ public abstract class AbstractNPCScreen extends Screen {
 
         // Custom skin data must be re-applied manually
         if (id.custom()) {
-            byte[] data = NPCUtil.images.get(id);
+            byte[] data = npc.getSkinManager().getSkinByteArray();
             if (data != null) {
                 preview.getSkinManager().setSkinByteArray(data);
             }
@@ -850,7 +851,7 @@ public abstract class AbstractNPCScreen extends Screen {
         preview.getSkinManager().setIdSkin(id);
 
         if (id.custom()) {
-            byte[] data = NPCUtil.images.get(id);
+            byte[] data = npc.getSkinManager().getSkinByteArray();
             if (data != null) preview.getSkinManager().setSkinByteArray(data);
             preview.getSkinManager().setDefaultSkin(false);
         } else {
@@ -885,13 +886,16 @@ public abstract class AbstractNPCScreen extends Screen {
             return;
         }
 
-        byte[] data = NPCUtil.images.getOrDefault(selected, null);
-
         if (selected.custom()) {
-            npc.getSkinManager().setSkinByteArray(data);
             npc.getSkinManager().setIdSkin(selected);
             npc.getSkinManager().setDefaultSkin(false);
-            ClientPlayNetworking.send(new ChangeSkinPayload(npc.getUuid(), selected));
+            CiviliansMod.LOGGER.info(
+                    "[GUI] Save custom skin npc={} custom={} bytes={}",
+                    npc.getUuid(),
+                    selected.custom(),
+                    npc.getSkinManager().getSkinByteArray() == null ? -1 : npc.getSkinManager().getSkinByteArray().length
+            );
+            ClientPlayNetworking.send(new ChangeSkinPayload(npc));
         } else {
             npc.setTrackedSkinVariant(selectedSkinIndex);
             npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex));
