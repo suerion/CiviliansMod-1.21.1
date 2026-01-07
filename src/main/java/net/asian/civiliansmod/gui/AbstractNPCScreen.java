@@ -810,7 +810,7 @@ public abstract class AbstractNPCScreen extends Screen {
         preview.getSkinManager().setIdSkin(id);
 
         if (id.custom()) {
-            byte[] data = npc.getSkinManager().getSkinByteArray();
+            byte[] data = NPCUtil.images.get(id);
             if (data != null) preview.getSkinManager().setSkinByteArray(data);
             preview.getSkinManager().setDefaultSkin(false);
         } else {
@@ -865,7 +865,7 @@ public abstract class AbstractNPCScreen extends Screen {
         preview.getSkinManager().setIdSkin(id);
 
         if (id.custom()) {
-            byte[] data = npc.getSkinManager().getSkinByteArray();
+            byte[] data = NPCUtil.images.get(id);
             if (data != null) preview.getSkinManager().setSkinByteArray(data);
             preview.getSkinManager().setDefaultSkin(false);
         } else {
