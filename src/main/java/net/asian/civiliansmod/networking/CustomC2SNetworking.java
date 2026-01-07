@@ -17,10 +17,8 @@ public class CustomC2SNetworking {
         ServerPlayNetworking.registerGlobalReceiver(ClientDialogueSyncPayload.ID, ClientDialogueSyncPayload::handlePacket);
         ServerPlayNetworking.registerGlobalReceiver(ChangeBaseSkinPayload.ID, ChangeBaseSkinPayload::handlePacket);
         // NEW
-        ServerPlayNetworking.registerGlobalReceiver(
-                MassRemoveDialoguePayload.ID,
-                (payload, context) -> context.server().execute(() ->
-                        MassRemoveDialoguePayload.handlePacket(payload, context)
+        ServerPlayNetworking.registerGlobalReceiver(MassRemoveDialoguePayload.ID, (
+                payload, context) -> context.server().execute(() -> MassRemoveDialoguePayload.handlePacket(payload, context)
                 )
         );
     }

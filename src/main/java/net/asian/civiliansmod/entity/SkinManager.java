@@ -49,6 +49,10 @@ public class SkinManager {
     public void setSkinByteArray(byte[] skinByteArray) {
         this.skinByteArray = skinByteArray;
         this.defaultSkin = false;
+
+        if (npcEntity.getWorld().isClient) {
+            this.uploadDynamicTexture();
+        }
     }
 
     public void setIdSkin(SkinIdentifier skin) {
@@ -76,13 +80,12 @@ public class SkinManager {
             MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
 
             boolean slim = false;
-
-            if (npcEntity.getTrackedSkinVariant() >= 0) {
-                slim = npcEntity.getTrackedSkinVariant() > 43;
+            if (this.skinIdentifier != null) {
+                slim = this.skinIdentifier.slim();
             }
-
             this.skinIdentifier = new SkinIdentifier(id, slim, true);
             this.defaultSkin = false;
+
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("Failed to upload NPC custom skin", e);
         }
@@ -94,17 +97,30 @@ public class SkinManager {
 
         if (skinByteArray != null) {
             writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
+            writeView.putBoolean("customSlim", this.skinIdentifier != null && this.skinIdentifier.slim());
         }
     }
 
-    void readNbt(ReadView readView) {
+    void readView(ReadView readView) {
         this.baseVariant = readView.getInt("basevariant", -1);
         this.defaultSkin = readView.getBoolean("defaultSkin", true);
 
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
         if (skin.isPresent()) {
             this.skinByteArray = skin.get().skin;
+
+            boolean slim = readView.getBoolean("customSlim", false);
+            Identifier id = Identifier.of("civiliansmod", "npc_skin_" + npcEntity.getUuid());
+            this.skinIdentifier = new SkinIdentifier(id, slim, true);
             this.defaultSkin = false;
+
+            if (npcEntity.getWorld().isClient) {
+                this.uploadDynamicTexture();
+            }
+        }
+        if (this.skinIdentifier == null && baseVariant >= 0) {
+            this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+            this.defaultSkin = true;
         }
     }
 

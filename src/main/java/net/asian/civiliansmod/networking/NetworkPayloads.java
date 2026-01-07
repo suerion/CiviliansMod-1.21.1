@@ -12,8 +12,6 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.codec.PacketCodec;
 
 public class NetworkPayloads {
-
-
     static {
         // C2S (Client to Server)
         registerC2S(NPCDataPayload.ID, NPCDataPayload.CODEC);
@@ -24,7 +22,6 @@ public class NetworkPayloads {
         registerC2S(PlayerLanguagePayload.ID, PlayerLanguagePayload.CODEC);
         registerC2S(ClientDialogueSyncPayload.ID, ClientDialogueSyncPayload.CODEC);
         registerC2S(ChangeBaseSkinPayload.ID, ChangeBaseSkinPayload.CODEC);
-        // NEW
         registerC2S(MassRemoveDialoguePayload.ID, MassRemoveDialoguePayload.CODEC);
 
 

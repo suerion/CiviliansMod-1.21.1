@@ -1,5 +1,7 @@
 package net.asian.civiliansmod.entity;
 
+import com.mojang.serialization.Codec;
+import io.netty.buffer.Unpooled;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.goal.*;
@@ -60,6 +62,7 @@ import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
+import java.nio.ByteBuffer;
 
 import static net.asian.civiliansmod.CiviliansMod.*;
 
@@ -106,15 +109,22 @@ public class NPCEntity extends PathAwareEntity {
     public NPCEntity(EntityType<? extends PathAwareEntity> entityType, World world) {
         super(entityType, world);
         if (!this.getWorld().isClient) {
+
+            CiviliansMod.LOGGER.info(
+                    "[CTOR] npc={} age={} trackedVariant={}",
+                    this.getUuid(),
+                    this.age,
+                    this.getTrackedSkinVariant()
+            );
+
             this.setCustomNameVisible(true);
             this.sent = new HashSet<>();
 
             // Assign a deterministic default skin once (never in replay contexts).
             if (ModCompat.isRealServerWorld(world)
                     && !ModCompat.isInReplay()
-                    && this.skinManager.getBaseVariant() < 0
-                    && this.skinManager.getSkinIdentifier() == null
-                    && !this.hasCustomName()) {
+                    && this.age == 0
+                    && this.dataTracker.get(TRACKED_SKIN_VARIANT) < 0) {
 
                 // Keep legacy behaviour: 0..87 with slim threshold at 44.
                 long seed = this.getUuid().getLeastSignificantBits() ^ this.getUuid().getMostSignificantBits();
@@ -158,14 +168,14 @@ public class NPCEntity extends PathAwareEntity {
         super.onTrackedDataSet(data);
 
         if (data == TRACKED_SKIN_VARIANT && this.getWorld().isClient && !ModCompat.isInReplay()) {
-            int variant = this.dataTracker.get(TRACKED_SKIN_VARIANT);
 
-            if (this.skinManager.getSkinIdentifier() != null && this.skinManager.getSkinByteArray() != null) {
+            if (this.skinManager.getSkinByteArray() != null) {
                 return;
             }
 
+            int variant = this.dataTracker.get(TRACKED_SKIN_VARIANT);
             if (variant >= 0) {
-                NPCUtil.ensureSkinsLoaded(); // CLIENT ONLY
+                NPCUtil.ensureSkinsLoaded();
                 SkinIdentifier skin = NPCUtil.getNPCTexture(variant);
                 if (skin != null) {
                     this.skinManager.setIdSkin(skin);
@@ -285,6 +295,7 @@ public class NPCEntity extends PathAwareEntity {
         writeView.putBoolean("DialogueOrdered", this.isDialogueOrdered());
         writeView.putInt("DialogueIndex", this.getDialogueIndex());
         // saveSKIN!!!
+        writeView.putInt("SkinVariant", this.dataTracker.get(TRACKED_SKIN_VARIANT));
         this.skinManager.writeView(writeView);
     }
 
@@ -292,8 +303,11 @@ public class NPCEntity extends PathAwareEntity {
     protected void readCustomData(ReadView readView) {
         super.readCustomData(readView);
 
-        // loadSKIN
-        this.skinManager.readNbt(readView);
+        int variant = readView.getInt("SkinVariant", -1);
+        if (variant >= 0) {
+            this.setTrackedSkinVariant(variant);
+        }
+        this.skinManager.readView(readView);
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);
@@ -303,6 +317,12 @@ public class NPCEntity extends PathAwareEntity {
         this.setTradePreset(readView.getString("TradePreset", "none"));
         this.setDialogueOrdered(readView.getBoolean("DialogueOrdered", false));
         this.setDialogueIndex(readView.getInt("DialogueIndex", 0));
+        CiviliansMod.LOGGER.info(
+                "[NPC-LOAD] uuid={} trackedVariant={} baseVariant={}",
+                this.getUuid(),
+                this.getTrackedSkinVariant(),
+                this.skinManager.getBaseVariant()
+        );
     }
 
     public boolean isPaused() { return this.dataTracker.get(IS_PAUSED); }
@@ -553,7 +573,7 @@ public class NPCEntity extends PathAwareEntity {
 
         SkinManager skinManager = this.getSkinManager();
 
-        if (!skinManager.isDefaultSkin() && skinManager.getSkinByteArray() != null && skinManager.getIdSkin() != null) {
+        if (skinManager.getSkinByteArray() != null) {
             client.setScreen(new CustomNPCScreen(this));
             return;
         }
@@ -635,16 +655,13 @@ public class NPCEntity extends PathAwareEntity {
             return super.createSpawnPacket(entityTrackerEntry);
         }
         CiviliansMod.LOGGER.info(
-                "[SpawnCheck] npc={} hasBytes={} default={}",
+                "[SpawnCheck] npc={} hasBytes={} variant={}",
                 this.getId(),
                 this.skinManager.getSkinByteArray() != null,
-                this.skinManager.isDefaultSkin()
+                this.getTrackedSkinVariant()
         );
         if (!this.getWorld().isClient) {
-            SkinIdentifier skin = this.skinManager.getIdSkin();
-
-            // If we have no skin information yet, do not sync anything.
-            if (skin == null && this.skinManager.getSkinByteArray() == null) {
+            if (this.skinManager.getSkinByteArray() == null && this.getTrackedSkinVariant() < 0 && this.skinManager.getBaseVariant() < 0) {
                 return super.createSpawnPacket(entityTrackerEntry);
             }
 

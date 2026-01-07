@@ -2,6 +2,7 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
@@ -56,9 +57,10 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
                     // Cache bytes
                     NPC_SKIN_BYTES_CACHE.put(key, this.skin);
 
+                    Identifier id = Identifier.of(CiviliansMod.MOD_ID,"npc_skin_" + npc.getUuid());
+                    npc.getSkinManager().setIdSkin(new SkinIdentifier(id, this.slim, true));
                     npc.getSkinManager().setSkinByteArray(this.skin); //
                     npc.getSkinManager().setDefaultSkin(false);
-
                     npc.refreshSkinModel();
                 }
             } catch (Exception e) {
