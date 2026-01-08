@@ -13,6 +13,7 @@ import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
+import net.minecraft.world.World;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,8 +47,8 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
 
         context.client().execute(() -> {
 
-            ClientWorld clientWorld = context.player().clientWorld;
-            Entity entity = clientWorld.getEntityById(this.npcId);
+            World world = context.player().getWorld();
+            Entity entity = world.getEntityById(this.npcId);
 
             try {
                 if (entity instanceof NPCEntity npc) {

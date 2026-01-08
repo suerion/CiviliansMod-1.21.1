@@ -3,10 +3,8 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.util.ModCompat;
-import net.asian.civiliansmod.util.NPCUtil;
-import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.world.ClientWorld;
+import net.minecraft.world.World;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -30,7 +28,7 @@ public record SyncSkinPayload(int npcId, int skinVariant) implements CustomPaylo
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        ClientWorld world = context.player().clientWorld;
+        World world = context.player().getWorld();
         Entity entity = world.getEntityById(this.npcId);
 
         if (entity instanceof NPCEntity npc && !ModCompat.isInReplay()) {
