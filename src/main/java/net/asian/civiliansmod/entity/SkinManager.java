@@ -117,10 +117,15 @@ public class SkinManager {
             if (npcEntity.getWorld().isClient) {
                 this.uploadDynamicTexture();
             }
+            return;
         }
-        if (npcEntity.getWorld().isClient) {
-            if (this.skinIdentifier == null && baseVariant >= 0) {
-                this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+
+        if (npcEntity.getWorld().isClient && this.skinIdentifier == null) {
+            int fallback = baseVariant >= 0 ? baseVariant : NPCUtil.getDeterministicSkinIndex(npcEntity.getUuid());
+
+            SkinIdentifier skinId = NPCUtil.getNPCTexture(fallback);
+            if (skinId != null) {
+                this.skinIdentifier = skinId;
                 this.defaultSkin = true;
             }
         }

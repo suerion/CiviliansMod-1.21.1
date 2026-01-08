@@ -83,11 +83,14 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         }
 
         if (!resolved) {
-            var modFallback = NPCUtil.getNPCTexture(0);
-            if (modFallback != null && modFallback.id() != null) {
-                livingEntityRenderState.texture = modFallback.id();
-                livingEntityRenderState.slim = modFallback.slim();
-                resolved = true;
+            int idx = NPCUtil.getDeterministicSkinIndex(livingEntity.getUuid());
+            if (idx >= 0) {
+                var modFallback = NPCUtil.getNPCTexture(idx);
+                if (modFallback != null && modFallback.id() != null) {
+                    livingEntityRenderState.texture = modFallback.id();
+                    livingEntityRenderState.slim = modFallback.slim();
+                    resolved = true;
+                }
             }
         }
 

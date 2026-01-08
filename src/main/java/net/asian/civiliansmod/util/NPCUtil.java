@@ -9,7 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import org.jetbrains.annotations.NotNull;
@@ -160,5 +159,10 @@ public class NPCUtil {
                 CiviliansMod.LOGGER.error("[NPCUtil] Failed to register skin {}", entry.getKey().id(), e);
             }
         }
+    }
+
+    public static int getDeterministicSkinIndex(UUID uuid) {
+        if (skins.isEmpty()) return -1;
+        return Math.floorMod(uuid.hashCode(), skins.size());
     }
 }
