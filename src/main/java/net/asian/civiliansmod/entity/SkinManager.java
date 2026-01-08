@@ -118,9 +118,11 @@ public class SkinManager {
                 this.uploadDynamicTexture();
             }
         }
-        if (this.skinIdentifier == null && baseVariant >= 0) {
-            this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
-            this.defaultSkin = true;
+        if (npcEntity.getWorld().isClient) {
+            if (this.skinIdentifier == null && baseVariant >= 0) {
+                this.skinIdentifier = NPCUtil.getNPCTexture(baseVariant);
+                this.defaultSkin = true;
+            }
         }
     }
 
