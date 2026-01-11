@@ -308,6 +308,26 @@ public class NPCEntity extends PathAwareEntity {
             this.setTrackedSkinVariant(variant);
         }
         this.skinManager.readView(readView);
+        if (this.getWorld().isClient) {
+            SkinManager skinmanager = this.getSkinManager();
+
+            if (skinmanager.getSkinByteArray() != null) {
+                skinmanager.uploadDynamicTexture();
+                this.refreshSkinModel();
+
+                CiviliansMod.LOGGER.info(
+                        "[REPLAY-FIX] Uploaded custom skin from NBT uuid={} bytes={}",
+                        this.getUuid(),
+                        skinmanager.getSkinByteArray().length
+                );
+            }
+        }
+        CiviliansMod.LOGGER.info(
+                "[NPC/readCustomData] uuid={} tracked={} skinId={}",
+                this.getUuid(),
+                this.getTrackedSkinVariant(),
+                this.skinManager.getIdSkin()
+        );
         this.setPaused(readView.getBoolean("IsPaused", false));
         this.dataTracker.set(IS_FOLLOWING, readView.getBoolean("IsFollowing", false));
         readView.read("Owner", Uuids.CODEC).ifPresent(this::setOwnerUuid);

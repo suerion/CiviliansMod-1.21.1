@@ -120,15 +120,41 @@ public class SkinManager {
             return;
         }
 
-        if (npcEntity.getWorld().isClient && this.skinIdentifier == null) {
-            int fallback = baseVariant >= 0 ? baseVariant : NPCUtil.getDeterministicSkinIndex(npcEntity.getUuid());
+        // IMPORTANT: In replay / flashback we must NEVER assign fallback skins.
+        // Only explicitly saved skin data is allowed.
+        if (npcEntity.getWorld().isClient
+                && !ModCompat.isInReplay()
+                && this.skinIdentifier == null
+                && baseVariant >= 0) {
 
-            SkinIdentifier skinId = NPCUtil.getNPCTexture(fallback);
+            SkinIdentifier skinId = NPCUtil.getNPCTexture(baseVariant);
             if (skinId != null) {
                 this.skinIdentifier = skinId;
                 this.defaultSkin = true;
             }
         }
+        if (npcEntity.getWorld().isClient
+                && ModCompat.isInReplay()
+                && this.skinIdentifier == null) {
+
+            int tracked = npcEntity.getTrackedSkinVariant();
+            if (tracked >= 0) {
+                SkinIdentifier skinId = NPCUtil.getNPCTexture(tracked);
+                if (skinId != null) {
+                    this.skinIdentifier = skinId;
+                    this.defaultSkin = true;
+                }
+            }
+        }
+        CiviliansMod.LOGGER.info(
+                "[SkinManager/readView] uuid={} replay={} tracked={} base={} skinId={} default={}",
+                npcEntity.getUuid(),
+                ModCompat.isInReplay(),
+                npcEntity.getTrackedSkinVariant(),
+                baseVariant,
+                skinIdentifier,
+                defaultSkin
+        );
     }
 
     public static class Skin {

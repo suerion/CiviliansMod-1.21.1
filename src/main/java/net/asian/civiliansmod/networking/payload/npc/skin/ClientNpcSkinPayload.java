@@ -60,7 +60,8 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
 
                     Identifier id = Identifier.of(CiviliansMod.MOD_ID,"npc_skin_" + npc.getUuid());
                     npc.getSkinManager().setIdSkin(new SkinIdentifier(id, this.slim, true));
-                    npc.getSkinManager().setSkinByteArray(this.skin); //
+                    npc.getSkinManager().setSkinByteArray(this.skin);
+                    npc.setTrackedSkinVariant(-1);
                     npc.getSkinManager().setDefaultSkin(false);
                     npc.refreshSkinModel();
                 }

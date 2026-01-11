@@ -31,7 +31,7 @@ public record SyncSkinPayload(int npcId, int skinVariant) implements CustomPaylo
         World world = context.player().getWorld();
         Entity entity = world.getEntityById(this.npcId);
 
-        if (entity instanceof NPCEntity npc && !ModCompat.isInReplay()) {
+        if (entity instanceof NPCEntity npc) {
             npc.setTrackedSkinVariant(this.skinVariant);
         }
     }

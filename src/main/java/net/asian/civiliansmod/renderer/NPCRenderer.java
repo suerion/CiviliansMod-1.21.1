@@ -12,6 +12,7 @@ import net.minecraft.client.render.entity.model.EntityModelLayer;
 import net.minecraft.client.render.entity.state.ArmedEntityRenderState;
 import net.minecraft.client.render.entity.state.LivingEntityRenderState;
 import net.minecraft.client.util.DefaultSkinHelper;
+import net.minecraft.client.util.SkinTextures;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.util.Identifier;
 
@@ -83,22 +84,25 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         }
 
         if (!resolved) {
-            int idx = NPCUtil.getDeterministicSkinIndex(livingEntity.getUuid());
-            if (idx >= 0) {
-                var modFallback = NPCUtil.getNPCTexture(idx);
-                if (modFallback != null && modFallback.id() != null) {
-                    livingEntityRenderState.texture = modFallback.id();
-                    livingEntityRenderState.slim = modFallback.slim();
+
+            // 🔒 REPLAY-SAFE: use tracked skin variant, NEVER vanilla default
+            int tracked = livingEntity.getTrackedSkinVariant();
+            if (tracked >= 0) {
+                var fallback = NPCUtil.getNPCTexture(tracked);
+                if (fallback != null && fallback.id() != null) {
+                    livingEntityRenderState.texture = fallback.id();
+                    livingEntityRenderState.slim = fallback.slim();
                     resolved = true;
                 }
             }
         }
 
         if (!resolved) {
+            // absolute last resort – should basically never happen
             var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
             livingEntityRenderState.texture = vanilla.texture();
             livingEntityRenderState.slim =
-                    vanilla.model() == net.minecraft.client.util.SkinTextures.Model.SLIM;
+                    vanilla.model() == SkinTextures.Model.SLIM;
         }
 
         livingEntityRenderState.handSwingProgress = livingEntity.getHandSwingProgress(f);
