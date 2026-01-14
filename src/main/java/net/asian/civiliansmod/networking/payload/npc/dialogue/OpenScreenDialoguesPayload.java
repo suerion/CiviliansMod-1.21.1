@@ -6,7 +6,6 @@ import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
@@ -39,10 +38,9 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogues) implements
     }
 
     public void handlePacket(ClientPlayNetworking.Context context) {
-        MinecraftClient client = MinecraftClient.getInstance();
+        context.client().execute(() -> {
 
-        client.execute(() -> {
-            World world = client.world;
+            World world = context.player().getWorld();
             if (world == null) return;
 
             Entity entity = world.getEntityById(this.npcId);
@@ -50,8 +48,10 @@ public record OpenScreenDialoguesPayload(int npcId, String dialogues) implements
                 CiviliansMod.LOGGER.warn("[CiviliansMod] Entity with id {} is not an NPCEntity!", npcId);
                 return;
             }
+
             var type = new TypeToken<Map<String, Map<NpcChat.ChatReason, List<String>>>>() {}.getType();
-            Map<String, Map<NpcChat.ChatReason, List<String>>> dialogueMap = new Gson().fromJson(dialogues, type);
+            Map<String, Map<NpcChat.ChatReason, List<String>>> dialogueMap =
+                    new Gson().fromJson(dialogues, type);
 
             npc.getChatManager().setDialogues(dialogueMap);
             npc.dialoguesReceived = true;

@@ -23,7 +23,6 @@ public class SkinManager {
     private SkinIdentifier skinIdentifier;
 
     private int baseVariant;
-    private boolean slim;
     private boolean defaultSkin;
 
     // Used to ensure we do not spam sync packets for the same entity.
@@ -38,18 +37,11 @@ public class SkinManager {
         // Important for replay mods (e.g. Flashback): do NOT assign random skins here.
         // Server-side default skin assignment is handled once in NPCEntity when appropriate.
         this.baseVariant = -1;
-        this.slim = false;
         this.skinSynced = false;
     }
 
-    public boolean isSlim() {
-        return slim;
-    }
-
-    public void setSlim(boolean slim) {
-        this.slim = slim;
-    }
-
+    // LEGACY ONLY – must never be written after migration
+    @Deprecated(forRemoval = false)
     public void setBaseVariant(int baseVariant) {
         this.baseVariant = baseVariant;
     }
@@ -57,31 +49,19 @@ public class SkinManager {
     public void setSkinByteArray(byte[] skinByteArray) {
         this.skinByteArray = skinByteArray;
         this.defaultSkin = false;
-        if (MinecraftClient.getInstance() != null) {
-            uploadDynamicTexture();
+
+        if (npcEntity.getWorld().isClient) {
+            this.uploadDynamicTexture();
         }
     }
 
     public void setIdSkin(SkinIdentifier skin) {
         this.skinIdentifier = skin;
+        this.defaultSkin = skin != null && !skin.custom();
     }
 
     public SkinIdentifier getIdSkin() {
-        if (this.skinIdentifier != null) {
-            return this.skinIdentifier;
-        }
-
-        if (NPCUtil.getSkins().isEmpty()) {
-            return null;
-        }
-
-        if (this.baseVariant >= 0) {
-            SkinIdentifier skin = NPCUtil.getNPCTexture(this.baseVariant);
-            if (skin != null) {
-                return skin;
-            }
-        }
-        return NPCUtil.getNPCTexture(0);
+        return this.skinIdentifier;
     }
 
     public SkinIdentifier getSkinIdentifier() {
@@ -99,7 +79,13 @@ public class SkinManager {
             NativeImageBackedTexture tex = new NativeImageBackedTexture(() -> id.getPath(), img);
             MinecraftClient.getInstance().getTextureManager().registerTexture(id, tex);
 
+            boolean slim = false;
+            if (this.skinIdentifier != null) {
+                slim = this.skinIdentifier.slim();
+            }
             this.skinIdentifier = new SkinIdentifier(id, slim, true);
+            this.defaultSkin = false;
+
         } catch (Exception e) {
             CiviliansMod.LOGGER.error("Failed to upload NPC custom skin", e);
         }
@@ -107,27 +93,85 @@ public class SkinManager {
 
     void writeView(WriteView writeView) {
         writeView.putInt("basevariant", baseVariant);
-        writeView.putBoolean("slim", slim);
         writeView.putBoolean("defaultSkin", defaultSkin);
 
         if (skinByteArray != null) {
             writeView.put("skin", Skin.CODEC, new Skin(skinByteArray));
+            writeView.putBoolean("customSlim", this.skinIdentifier != null && this.skinIdentifier.slim());
         }
     }
 
-    void readNbt(ReadView readView) {
+    void readView(ReadView readView) {
         this.baseVariant = readView.getInt("basevariant", -1);
-        this.slim = readView.getBoolean("slim", this.baseVariant > 43);
-        this.defaultSkin = readView.getBoolean("defaultSkin", true);
-
+        this.skinByteArray = null;
+        this.skinIdentifier = null;
+        this.defaultSkin = true;
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
+
+        if (CiviliansMod.DEBUG_TEXTURE) {
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView] uuid={} replay={} skinNBT={} baseVariant={}",
+                    npcEntity.getUuid(),
+                    ModCompat.isInReplay(),
+                    skin.isPresent(),
+                    baseVariant
+            );
+        }
+
         if (skin.isPresent()) {
             this.skinByteArray = skin.get().skin;
+
+            boolean slim = readView.getBoolean("customSlim", false);
+            Identifier id = Identifier.of("civiliansmod", "npc_skin_" + npcEntity.getUuid());
+            this.skinIdentifier = new SkinIdentifier(id, slim, true);
             this.defaultSkin = false;
 
-            if (MinecraftClient.getInstance() != null) {
-                uploadDynamicTexture();
+            if (npcEntity.getWorld().isClient) {
+                this.uploadDynamicTexture();
             }
+
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView/APPLIED] uuid={} bytes={} slim={} texture={}",
+                    npcEntity.getUuid(),
+                    skin.get().skin.length,
+                    slim,
+                    id
+            );
+
+            return;
+        } else {
+            if (CiviliansMod.DEBUG_TEXTURE) {
+                CiviliansMod.LOGGER.info(
+                        "[SkinManager/readView] uuid={} no custom skin in NBT",
+                        npcEntity.getUuid()
+                );
+            }
+        }
+
+        // IMPORTANT: In replay / flashback we must NEVER assign fallback skins.
+        // Only explicitly saved skin data is allowed.
+        if (!ModCompat.isInReplay()
+                && npcEntity.getWorld().isClient
+                && this.skinIdentifier == null
+                && baseVariant >= 0) {
+
+            SkinIdentifier skinId = NPCUtil.getNPCTexture(baseVariant);
+            if (skinId != null) {
+                this.skinIdentifier = skinId;
+                this.defaultSkin = true;
+            }
+        }
+        if (CiviliansMod.DEBUG_TEXTURE){
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView] uuid={} replay={} tracked={} base={} default={} hasBytes={} custom={}",
+                    npcEntity.getUuid(),
+                    ModCompat.isInReplay(),
+                    npcEntity.getTrackedSkinVariant(),
+                    baseVariant,
+                    defaultSkin,
+                    skinByteArray != null,
+                    skinIdentifier != null && skinIdentifier.custom()
+            );
         }
     }
 
@@ -148,12 +192,29 @@ public class SkinManager {
     }
 
     public boolean isSlimModel() {
-        return slim;
+        if (skinIdentifier != null) {
+            return skinIdentifier.slim();
+        }
+
+        if (ModCompat.isInReplay()) {
+            return false;
+        }
+
+        int tracked = npcEntity.getTrackedSkinVariant();
+        return tracked >= 0 && tracked > 43;
     }
+
     public boolean isDefaultSkin() {
         return defaultSkin;
     }
+
     public void setDefaultSkin(boolean value) {
         this.defaultSkin = value;
+    }
+
+    public boolean hasCustomSkin() {
+        return this.skinByteArray != null
+                && this.skinIdentifier != null
+                && this.skinIdentifier.custom();
     }
 }

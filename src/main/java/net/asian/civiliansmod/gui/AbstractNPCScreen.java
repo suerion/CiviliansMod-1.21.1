@@ -1,5 +1,6 @@
 package net.asian.civiliansmod.gui;
 
+import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
@@ -177,7 +178,15 @@ public abstract class AbstractNPCScreen extends Screen {
         this.previousBB = this.battleBuddyState;
 
         SkinIdentifier id = npc.getSkinManager().getIdSkin();
-        this.selectedSkinIndex = NPCUtil.getSkins().indexOf(id);
+        this.originalVariantIndex = NPCUtil.getSkins().indexOf(id);
+        this.selectedSkinIndex = this.originalVariantIndex;
+        CiviliansMod.LOGGER.info(
+                "[GUI-OPEN] npc={} originalVariant={} selectedVariant={} skinId={}",
+                npc.getUuid(),
+                this.originalVariantIndex,
+                this.selectedSkinIndex,
+                id
+        );
         previewNpcCache.clear();
         super.init();
 
@@ -657,6 +666,12 @@ public abstract class AbstractNPCScreen extends Screen {
                     int newSkinIndex = skinsToRender.get(i);
                     this.selectedSkinIndex = newSkinIndex;
 
+                    CiviliansMod.LOGGER.info(
+                            "[GUI-SELECT] npc={} clickedVariant={}",
+                            npc.getUuid(),
+                            newSkinIndex
+                    );
+
                     // update center preview immediately
                     this.previewNpc = previewNpcCache.computeIfAbsent(newSkinIndex, this::createPreviewNPC);
                     return true;
@@ -793,7 +808,6 @@ public abstract class AbstractNPCScreen extends Screen {
 
         SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         if (id.custom()) {
             byte[] data = NPCUtil.images.get(id);
@@ -819,11 +833,10 @@ public abstract class AbstractNPCScreen extends Screen {
 
         // Set identifier (Slim + Path)
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         // Custom skin data must be re-applied manually
         if (id.custom()) {
-            byte[] data = NPCUtil.images.get(id);
+            byte[] data = npc.getSkinManager().getSkinByteArray();
             if (data != null) {
                 preview.getSkinManager().setSkinByteArray(data);
             }
@@ -850,7 +863,6 @@ public abstract class AbstractNPCScreen extends Screen {
 
         SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
         preview.getSkinManager().setIdSkin(id);
-        preview.getSkinManager().setSlim(id.slim());
 
         if (id.custom()) {
             byte[] data = NPCUtil.images.get(id);
@@ -888,17 +900,31 @@ public abstract class AbstractNPCScreen extends Screen {
             return;
         }
 
-        byte[] data = NPCUtil.images.getOrDefault(selected, null);
+        CiviliansMod.LOGGER.info("[GUI-SAVE] npc={} originalVariant={} selectedVariant={} isCustom={}", npc.getUuid(), originalVariantIndex, selectedSkinIndex, selected.custom());
 
         if (selected.custom()) {
-            npc.getSkinManager().setSkinByteArray(data);
-            npc.getSkinManager().setIdSkin(selected);
-            npc.getSkinManager().setSlim(selected.slim());
+            byte[] bytes = NPCUtil.images.get(selected);
+            boolean slim = selected.slim();
+
+            if (bytes == null) {
+                CiviliansMod.LOGGER.warn("[GUI-SAVE] Custom skin selected but no skin bytes present npc={}", npc.getUuid());
+                this.close();
+                return;
+            }
+            CiviliansMod.LOGGER.info("[GUI] Save custom skin npc={} custom={} bytes={}", npc.getUuid(), slim, npc.getSkinManager().getSkinByteArray() == null ? -1 : npc.getSkinManager().getSkinByteArray().length);
+
+            ClientPlayNetworking.send(new ChangeSkinPayload(npc.getUuid(), slim, bytes));
+
+            npc.getSkinManager().setSkinByteArray(bytes);
+            npc.getSkinManager().setIdSkin(new SkinIdentifier(Identifier.of(CiviliansMod.MOD_ID, "npc_skin_" + npc.getUuid()), slim, true));
             npc.getSkinManager().setDefaultSkin(false);
-            ClientPlayNetworking.send(new ChangeSkinPayload( npc.getUuid(), selected.slim(), selected));
+            npc.refreshSkinModel();
+
         } else {
-            npc.getSkinManager().setBaseVariant(selectedSkinIndex);
-            npc.getSkinManager().setSlim(selectedSkinIndex > 43);
+            if (selectedSkinIndex != originalVariantIndex) {
+                npc.setTrackedSkinVariant(selectedSkinIndex);
+                npc.getSkinManager().setBaseVariant(selectedSkinIndex);
+            }
             npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex));
             npc.getSkinManager().setDefaultSkin(true);
             ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), selectedSkinIndex));

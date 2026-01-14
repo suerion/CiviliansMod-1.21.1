@@ -2,10 +2,8 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.network.RegistryByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.codec.PacketCodecs;
@@ -15,8 +13,7 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Uuids;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.util.Objects;
 import java.util.UUID;
 
 public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) implements CustomPayload {
@@ -29,12 +26,8 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
             ChangeSkinPayload::new
     );
 
-    public ChangeSkinPayload(UUID npcUuid, boolean slim, SkinIdentifier skinIdentifier) {
-        this(
-                npcUuid,
-                slim,
-                NPCUtil.images.getOrDefault(skinIdentifier, new byte[0])
-        );
+    public ChangeSkinPayload(NPCEntity npc) {
+        this(npc.getUuid(), npc.getSkinManager().isSlimModel(),Objects.requireNonNull(npc.getSkinManager().getSkinByteArray(), "Tried to send ChangeSkinPayload without skin bytes"));
     }
 
     @Override
@@ -44,17 +37,33 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
 
     public void handlePacket(ServerPlayNetworking.Context context) {
         if (skin == null || skin.length == 0) return;
-        if (!(context.player().getWorld() instanceof ServerWorld world)) return;
-        if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
-        //if (skin.length != 16384) return;
+        if (skin.length > 256_000) return;
 
-        entity.getSkinManager().setSkinByteArray(skin);
-        entity.getSkinManager().setSlim(slim);
-        entity.getSkinManager().setDefaultSkin(false);
+        context.server().execute(() -> {
+            if (!(context.player().getWorld() instanceof ServerWorld world)) return;
+            if (!(world.getEntity(this.npcUuid) instanceof NPCEntity entity)) return;
 
-        for (ServerPlayerEntity player : world.getPlayers()) {
-            ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), slim, skin)
-            );
-        }
+            entity.getSkinManager().setSkinByteArray(skin);
+            entity.getSkinManager().setIdSkin(new SkinIdentifier(Identifier.of(CiviliansMod.MOD_ID, "npc_skin_" + entity.getUuid()), this.slim, true));
+            entity.setTrackedSkinVariant(-1);
+
+            entity.getDataTracker().set(NPCEntity.HAS_CUSTOM_SKIN, true);
+
+            entity.calculateDimensions();
+            entity.setVelocity(entity.getVelocity());
+
+            for (ServerPlayerEntity player : world.getPlayers()) {
+                ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), this.slim, skin));
+            }
+            if (CiviliansMod.DEBUG_TEXTURE || CiviliansMod.DEBUG_NETWORK) {
+                CiviliansMod.LOGGER.info(
+                        "[SERVER/SKIN-SET] uuid={} HAS_CUSTOM_SKIN={} bytes={} slim={}",
+                        entity.getUuid(),
+                        entity.getDataTracker().get(NPCEntity.HAS_CUSTOM_SKIN),
+                        skin.length,
+                        slim
+                );
+            }
+        });
     }
 }
