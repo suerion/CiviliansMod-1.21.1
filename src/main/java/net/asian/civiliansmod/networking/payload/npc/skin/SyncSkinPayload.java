@@ -33,6 +33,7 @@ public record SyncSkinPayload(int npcId, int skinVariant) implements CustomPaylo
 
         if (entity instanceof NPCEntity npc) {
             npc.setTrackedSkinVariant(this.skinVariant);
+            npc.getDataTracker().set(NPCEntity.HAS_CUSTOM_SKIN, false);
         }
     }
 }

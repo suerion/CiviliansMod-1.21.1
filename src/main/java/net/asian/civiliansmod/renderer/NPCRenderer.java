@@ -3,7 +3,9 @@ package net.asian.civiliansmod.renderer;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.model.NPCModel;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.minecraft.client.render.VertexConsumerProvider;
 import net.minecraft.client.render.entity.MobEntityRenderer;
 import net.minecraft.client.render.entity.EntityRendererFactory;
@@ -72,12 +74,50 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
     @Override
     public void updateRenderState(NPCEntity livingEntity, NPCRenderState livingEntityRenderState, float f) {
+        CiviliansMod.LOGGER.info(
+                "[RenderState/START] id={} uuid={} replay={}",
+                livingEntity.getId(),
+                livingEntity.getUuid(),
+                ModCompat.isInReplay()
+        );
         super.updateRenderState(livingEntity, livingEntityRenderState, f);
 
         boolean resolved = false;
 
+        if (livingEntity.getSkinManager().getSkinByteArray() != null
+                && livingEntity.getSkinManager().getIdSkin() == null) {
+
+            CiviliansMod.LOGGER.warn(
+                    "[RenderState/FIXUP] uuid={} had bytes but no idSkin",
+                    livingEntity.getUuid()
+            );
+
+            Identifier id = Identifier.of(
+                    CiviliansMod.MOD_ID,
+                    "npc_skin_" + livingEntity.getUuid()
+            );
+
+            livingEntity.getSkinManager().setIdSkin(
+                    new SkinIdentifier(id, false, true)
+            );
+        }
+
+        CiviliansMod.LOGGER.info(
+                "[RENDER/CHECK] uuid={} skinId={} bytes={}",
+                livingEntity.getUuid(),
+                livingEntity.getSkinManager().getIdSkin(),
+                livingEntity.getSkinManager().getSkinByteArray() != null
+                        ? livingEntity.getSkinManager().getSkinByteArray().length
+                        : -1
+        );
         var skin = livingEntity.getSkinManager().getIdSkin();
         if (skin != null && skin.id() != null) {
+            CiviliansMod.LOGGER.info(
+                    "[RenderState/CUSTOM] id={} texture={} slim={}",
+                    livingEntity.getId(),
+                    skin.id(),
+                    skin.slim()
+            );
             livingEntityRenderState.texture = skin.id();
             livingEntityRenderState.slim = skin.slim();
             resolved = true;
@@ -85,9 +125,14 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
         if (!resolved) {
 
-            // 🔒 REPLAY-SAFE: use tracked skin variant, NEVER vanilla default
+            //  REPLAY-SAFE: use tracked skin variant, NEVER vanilla default
             int tracked = livingEntity.getTrackedSkinVariant();
             if (tracked >= 0) {
+                CiviliansMod.LOGGER.info(
+                        "[RenderState/FALLBACK-VARIANT] id={} variant={}",
+                        livingEntity.getId(),
+                        tracked
+                );
                 var fallback = NPCUtil.getNPCTexture(tracked);
                 if (fallback != null && fallback.id() != null) {
                     livingEntityRenderState.texture = fallback.id();
@@ -99,6 +144,11 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
 
         if (!resolved) {
             // absolute last resort – should basically never happen
+            CiviliansMod.LOGGER.error(
+                    "[RenderState/VANILLA-FALLBACK] id={} uuid={}",
+                    livingEntity.getId(),
+                    livingEntity.getUuid()
+            );
             var vanilla = DefaultSkinHelper.getSkinTextures(livingEntity.getUuid());
             livingEntityRenderState.texture = vanilla.texture();
             livingEntityRenderState.slim =
@@ -120,7 +170,13 @@ public class NPCRenderer extends MobEntityRenderer<NPCEntity, NPCRenderState, NP
         ArmedEntityRenderState.updateRenderState(livingEntity, livingEntityRenderState, this.itemModelResolver);
 
         if (CiviliansMod.DEBUG_RENDER) {
-            CiviliansMod.LOGGER.info("[NPC/RenderState] id={} slim={} texture={}", livingEntity.getId(), livingEntityRenderState.slim, livingEntityRenderState.texture);
+            CiviliansMod.LOGGER.info(
+                    "[RENDER/FINAL] id={} texture={} slim={} replay={}",
+                    livingEntity.getId(),
+                    livingEntityRenderState.texture,
+                    livingEntityRenderState.slim,
+                    ModCompat.isInReplay()
+            );
         }
     }
 }

@@ -103,9 +103,21 @@ public class SkinManager {
 
     void readView(ReadView readView) {
         this.baseVariant = readView.getInt("basevariant", -1);
-        this.defaultSkin = readView.getBoolean("defaultSkin", true);
-
+        this.skinByteArray = null;
+        this.skinIdentifier = null;
+        this.defaultSkin = true;
         Optional<Skin> skin = readView.read("skin", Skin.CODEC);
+
+        if (CiviliansMod.DEBUG_TEXTURE) {
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView] uuid={} replay={} skinNBT={} baseVariant={}",
+                    npcEntity.getUuid(),
+                    ModCompat.isInReplay(),
+                    skin.isPresent(),
+                    baseVariant
+            );
+        }
+
         if (skin.isPresent()) {
             this.skinByteArray = skin.get().skin;
 
@@ -117,13 +129,29 @@ public class SkinManager {
             if (npcEntity.getWorld().isClient) {
                 this.uploadDynamicTexture();
             }
+
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView/APPLIED] uuid={} bytes={} slim={} texture={}",
+                    npcEntity.getUuid(),
+                    skin.get().skin.length,
+                    slim,
+                    id
+            );
+
             return;
+        } else {
+            if (CiviliansMod.DEBUG_TEXTURE) {
+                CiviliansMod.LOGGER.info(
+                        "[SkinManager/readView] uuid={} no custom skin in NBT",
+                        npcEntity.getUuid()
+                );
+            }
         }
 
         // IMPORTANT: In replay / flashback we must NEVER assign fallback skins.
         // Only explicitly saved skin data is allowed.
-        if (npcEntity.getWorld().isClient
-                && !ModCompat.isInReplay()
+        if (!ModCompat.isInReplay()
+                && npcEntity.getWorld().isClient
                 && this.skinIdentifier == null
                 && baseVariant >= 0) {
 
@@ -133,28 +161,18 @@ public class SkinManager {
                 this.defaultSkin = true;
             }
         }
-        if (npcEntity.getWorld().isClient
-                && ModCompat.isInReplay()
-                && this.skinIdentifier == null) {
-
-            int tracked = npcEntity.getTrackedSkinVariant();
-            if (tracked >= 0) {
-                SkinIdentifier skinId = NPCUtil.getNPCTexture(tracked);
-                if (skinId != null) {
-                    this.skinIdentifier = skinId;
-                    this.defaultSkin = true;
-                }
-            }
+        if (CiviliansMod.DEBUG_TEXTURE){
+            CiviliansMod.LOGGER.info(
+                    "[SkinManager/readView] uuid={} replay={} tracked={} base={} default={} hasBytes={} custom={}",
+                    npcEntity.getUuid(),
+                    ModCompat.isInReplay(),
+                    npcEntity.getTrackedSkinVariant(),
+                    baseVariant,
+                    defaultSkin,
+                    skinByteArray != null,
+                    skinIdentifier != null && skinIdentifier.custom()
+            );
         }
-        CiviliansMod.LOGGER.info(
-                "[SkinManager/readView] uuid={} replay={} tracked={} base={} skinId={} default={}",
-                npcEntity.getUuid(),
-                ModCompat.isInReplay(),
-                npcEntity.getTrackedSkinVariant(),
-                baseVariant,
-                skinIdentifier,
-                defaultSkin
-        );
     }
 
     public static class Skin {
@@ -177,6 +195,11 @@ public class SkinManager {
         if (skinIdentifier != null) {
             return skinIdentifier.slim();
         }
+
+        if (ModCompat.isInReplay()) {
+            return false;
+        }
+
         int tracked = npcEntity.getTrackedSkinVariant();
         return tracked >= 0 && tracked > 43;
     }
@@ -187,5 +210,11 @@ public class SkinManager {
 
     public void setDefaultSkin(boolean value) {
         this.defaultSkin = value;
+    }
+
+    public boolean hasCustomSkin() {
+        return this.skinByteArray != null
+                && this.skinIdentifier != null
+                && this.skinIdentifier.custom();
     }
 }

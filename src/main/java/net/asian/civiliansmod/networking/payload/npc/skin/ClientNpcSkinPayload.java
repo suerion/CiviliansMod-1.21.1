@@ -2,6 +2,7 @@ package net.asian.civiliansmod.networking.payload.npc.skin;
 
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
@@ -37,8 +38,19 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
     @Override
     public Id<? extends CustomPayload> getId() { return ID; }
 
+    public static byte[] getCachedSkin(UUID uuid) {
+        return NPC_SKIN_BYTES_CACHE.get(uuid);
+    }
+
     @Environment(EnvType.CLIENT)
     public void handlePacket(ClientPlayNetworking.Context context) {
+        if (CiviliansMod.DEBUG_NETWORK) {
+            CiviliansMod.LOGGER.info(
+                    "[ClientNpcSkinPayload] npcId={} bytes={}",
+                    this.npcId,
+                    this.skin != null ? this.skin.length : -1
+            );
+        }
 
         if (this.skin == null || this.skin.length == 0) {
             CiviliansMod.LOGGER.warn("[Client] Received empty skin packet for npcId={}", this.npcId);
@@ -52,6 +64,14 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
 
             try {
                 if (entity instanceof NPCEntity npc) {
+                    if (CiviliansMod.DEBUG_NETWORK) {
+                        CiviliansMod.LOGGER.info(
+                                "[ClientNpcSkinPayload/APPLY] uuid={} bytes={} slim={}",
+                                npc.getUuid(),
+                                this.skin.length,
+                                this.slim
+                        );
+                    }
 
                     UUID key = npc.getUuid();
 
@@ -61,9 +81,14 @@ public record ClientNpcSkinPayload(int npcId, boolean slim, byte[] skin) impleme
                     Identifier id = Identifier.of(CiviliansMod.MOD_ID,"npc_skin_" + npc.getUuid());
                     npc.getSkinManager().setIdSkin(new SkinIdentifier(id, this.slim, true));
                     npc.getSkinManager().setSkinByteArray(this.skin);
-                    npc.setTrackedSkinVariant(-1);
-                    npc.getSkinManager().setDefaultSkin(false);
                     npc.refreshSkinModel();
+                    CiviliansMod.LOGGER.info(
+                            "[CLIENT-SKIN-APPLY] uuid={} bytes={} custom={} default={}",
+                            npc.getUuid(),
+                            this.skin.length,
+                            npc.getSkinManager().getIdSkin() != null && npc.getSkinManager().getIdSkin().custom(),
+                            npc.getSkinManager().isDefaultSkin()
+                    );
                 }
             } catch (Exception e) {
                 CiviliansMod.LOGGER.error("[Client] Error decoding NPC skin", e);

@@ -45,11 +45,24 @@ public record ChangeSkinPayload(UUID npcUuid, boolean slim, byte[] skin) impleme
 
             entity.getSkinManager().setSkinByteArray(skin);
             entity.getSkinManager().setIdSkin(new SkinIdentifier(Identifier.of(CiviliansMod.MOD_ID, "npc_skin_" + entity.getUuid()), this.slim, true));
-            entity.getSkinManager().setDefaultSkin(false);
             entity.setTrackedSkinVariant(-1);
+
+            entity.getDataTracker().set(NPCEntity.HAS_CUSTOM_SKIN, true);
+
+            entity.calculateDimensions();
+            entity.setVelocity(entity.getVelocity());
 
             for (ServerPlayerEntity player : world.getPlayers()) {
                 ServerPlayNetworking.send(player, new ClientNpcSkinPayload(entity.getId(), this.slim, skin));
+            }
+            if (CiviliansMod.DEBUG_TEXTURE || CiviliansMod.DEBUG_NETWORK) {
+                CiviliansMod.LOGGER.info(
+                        "[SERVER/SKIN-SET] uuid={} HAS_CUSTOM_SKIN={} bytes={} slim={}",
+                        entity.getUuid(),
+                        entity.getDataTracker().get(NPCEntity.HAS_CUSTOM_SKIN),
+                        skin.length,
+                        slim
+                );
             }
         });
     }

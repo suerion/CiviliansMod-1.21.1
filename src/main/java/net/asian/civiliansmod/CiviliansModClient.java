@@ -49,13 +49,38 @@ public class CiviliansModClient implements ClientModInitializer {
             FolderUtil.init();
             NPCUtil.refreshTextures();
             if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().world != null) {
+                CiviliansMod.LOGGER.info(
+                        "[ModCompat] replay={} world={}",
+                        ModCompat.isInReplay(),
+                        MinecraftClient.getInstance().world != null
+                                ? MinecraftClient.getInstance().world.getClass().getSimpleName()
+                                : "null"
+                );
                 var world = MinecraftClient.getInstance().world;
 
                 for (var entity : world.getEntities()) {
                     if (entity instanceof NPCEntity npc) {
                         var sm = npc.getSkinManager();
 
-                        if (sm.getSkinIdentifier() == null && sm.getBaseVariant() >= 0 && !NPCUtil.getSkins().isEmpty()) {
+                        if (ModCompat.isInReplay()) {
+                            if (sm.getSkinByteArray() != null) {
+                                sm.uploadDynamicTexture();
+                                sm.setDefaultSkin(false);
+                                npc.refreshSkinModel();
+
+                                CiviliansMod.LOGGER.info(
+                                        "[REPLAY-NBT] Applied custom skin uuid={} bytes={}",
+                                        npc.getUuid(),
+                                        sm.getSkinByteArray().length
+                                );
+                                continue;
+                            }
+                        }
+
+                        if (sm.getSkinIdentifier() == null
+                                && sm.getBaseVariant() >= 0
+                                && !NPCUtil.getSkins().isEmpty()) {
+
                             sm.setIdSkin(NPCUtil.getNPCTexture(sm.getBaseVariant()));
                         }
                     }
