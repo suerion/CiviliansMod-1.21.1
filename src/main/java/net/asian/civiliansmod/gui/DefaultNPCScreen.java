@@ -6,21 +6,18 @@ import net.asian.civiliansmod.util.SkinIdentifier;
 import java.util.List;
 import java.util.stream.IntStream;
 
-
-/**
- * Class to display default npc models
- */
 public class DefaultNPCScreen extends AbstractNPCScreen {
     public DefaultNPCScreen(NPCEntity npc) {
-        super(npc);
+        super(npc, Tab.SKINS); // Start on the Skins tab
     }
 
-    public DefaultNPCScreen(NPCEntity npc, int selected, int defaultSkin, int selectedVariantIndex,boolean follow, boolean stay) {
-        super(npc, selected, defaultSkin, selectedVariantIndex, follow, stay);
+    public DefaultNPCScreen(NPCEntity npc, Tab startingTab) {
+        super(npc, startingTab);
     }
 
     @Override
     protected List<Integer> getSkinsToRender() {
+        // Return only default (wide) skins
         return IntStream.range(0, NPCUtil.getSkins().size())
                 .filter(i -> {
                     SkinIdentifier skin = NPCUtil.getSkins().get(i);
@@ -29,9 +26,4 @@ public class DefaultNPCScreen extends AbstractNPCScreen {
                 .boxed()
                 .toList();
     }
-
-    public DefaultNPCScreen(NPCEntity npc, int selected, int originalVariant) {
-        super(npc, selected, originalVariant);
-    }
-
 }

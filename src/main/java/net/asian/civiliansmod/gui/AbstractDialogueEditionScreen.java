@@ -9,18 +9,18 @@ import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
 public class AbstractDialogueEditionScreen extends Screen {
-    String text;
-    TextFieldWidget textFieldWidget;
-    CustomChatScreen parent;
-    NpcChat.ChatReason reason;
-    NPCEntity npc;
+    protected String text;
+    protected TextFieldWidget textFieldWidget;
 
-    protected AbstractDialogueEditionScreen(NPCEntity npc, String text, NpcChat.ChatReason reason, CustomChatScreen parent) {
+    protected AbstractNPCScreen parent;
+    protected NpcChat.ChatReason reason;
+    protected NPCEntity npc;
+
+    protected AbstractDialogueEditionScreen(NPCEntity npc, String text, NpcChat.ChatReason reason, AbstractNPCScreen parent) {
         super(Text.literal("dialoguescreen"));
         this.npc = npc;
         this.text = text;
@@ -30,15 +30,18 @@ public class AbstractDialogueEditionScreen extends Screen {
 
     @Override
     protected void init() {
+        super.init();
+
         int x = width / 2;
         int y = height / 2;
-        super.init();
+
         this.textFieldWidget = new TextFieldWidget(this.client.textRenderer, x - 125, y, 250, 15, Text.literal(text));
         this.textFieldWidget.setMaxLength(256);
         this.textFieldWidget.setText(text);
-        TextButtonWidget cancelButton = new TextButtonWidget(x - 66, y + 30, 60, 15, Text.translatable("civilians.gui.cancel"), button -> MinecraftClient.getInstance().setScreen(parent), 0xFFFFFF, 0xFFFF0000);
-
         addDrawableChild(textFieldWidget);
+
+        TextButtonWidget cancelButton = new TextButtonWidget(x - 66, y + 30, 60, 15, Text.translatable("civilians.gui.cancel"), button -> {MinecraftClient.getInstance().setScreen(parent);addDrawableChild(textFieldWidget);}, 0xFFFFFF, 0xFFFF0000);
+
         addDrawableChild(cancelButton);
     }
 

@@ -12,9 +12,8 @@ import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.network.codec.PacketCodec;
 
 public class NetworkPayloads {
-
-
     static {
+        // C2S (Client to Server)
         registerC2S(NPCDataPayload.ID, NPCDataPayload.CODEC);
         registerC2S(AddDialoguePayload.ID, AddDialoguePayload.CODEC);
         registerC2S(EditDialoguePayload.ID, EditDialoguePayload.CODEC);
@@ -23,8 +22,10 @@ public class NetworkPayloads {
         registerC2S(PlayerLanguagePayload.ID, PlayerLanguagePayload.CODEC);
         registerC2S(ClientDialogueSyncPayload.ID, ClientDialogueSyncPayload.CODEC);
         registerC2S(ChangeBaseSkinPayload.ID, ChangeBaseSkinPayload.CODEC);
+        registerC2S(MassRemoveDialoguePayload.ID, MassRemoveDialoguePayload.CODEC);
 
 
+        // S2C (Server to Client)
         registerS2C(OpenScreenDialoguesPayload.ID, OpenScreenDialoguesPayload.CODEC);
         registerS2C(ClientNpcSkinPayload.ID, ClientNpcSkinPayload.CODEC);
         registerS2C(NpcSpawnPayload.ID, NpcSpawnPayload.CODEC);
@@ -41,6 +42,6 @@ public class NetworkPayloads {
     }
 
     public static void intialize() {
-
+        // This method is called to ensure the static block executes.
     }
 }

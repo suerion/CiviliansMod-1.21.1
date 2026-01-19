@@ -1,752 +1,966 @@
 package net.asian.civiliansmod.gui;
 
-import com.mojang.blaze3d.systems.RenderSystem;
 import net.asian.civiliansmod.CiviliansMod;
+import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
+import net.asian.civiliansmod.gui.widgets.DialogueListWidget;
+import net.asian.civiliansmod.gui.widgets.OptionWidget;
+import net.asian.civiliansmod.gui.widgets.TextButtonWidget;
+import net.asian.civiliansmod.networking.NPCDataPayload;
+import net.asian.civiliansmod.networking.payload.npc.dialogue.MassRemoveDialoguePayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
-import net.asian.civiliansmod.networking.NPCDataPayload;
+import net.asian.civiliansmod.trades.TradeManager;
 import net.asian.civiliansmod.util.NPCUtil;
+import net.asian.civiliansmod.util.SkinIdentifier;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.gui.widget.TextFieldWidget;
-import net.minecraft.client.gui.widget.SliderWidget;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.*;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
 import net.minecraft.client.render.entity.EntityRenderer;
 import net.minecraft.client.render.entity.state.EntityRenderState;
-import net.minecraft.entity.LivingEntity;
-import net.minecraft.storage.NbtWriteView;
-import net.minecraft.text.Text;
-import net.minecraft.util.ErrorReporter;
-import net.minecraft.util.Identifier;
-import net.minecraft.world.World;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.PathAwareEntity;
-import net.minecraft.entity.Entity;
-import net.asian.civiliansmod.custom_skins.SkinFolderManager;
+import net.minecraft.text.Text;
+import net.minecraft.util.Identifier;
+import net.minecraft.util.math.MathHelper;
+import net.minecraft.world.World;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
-public abstract class AbstractNPCScreen extends AbstractConfigScreen {
-    private final NPCEntity npc;
-    private SliderWidget wanderSlider;
-    private boolean battleBuddy;
-    private float wanderRadius;
+public abstract class AbstractNPCScreen extends Screen {
 
-    // Layout constants
-    private static final int ENTITY_PREVIEW_SIZE = 25; // Downscaled preview
-    private static final int ENTITY_SPACING = 58;     // Adjusted spacing
-    private static final int COLUMN_WIDTH = 130;
-    private final int defaultSkin;
-    private int selectedVariant; // No variant is selected by default
-    private int selectedVariantIndex = -1; // No variant is selected by default
-    private int scrollOffset = 0;  // Current scroll offset
-    private int maxScrollOffset;  // Maximum allowed scroll offset
-    private boolean isScrolling = false; // True if currently dragging the scrollbar
-    private int scrollbarHeight = 0;
-    private int scrollbarY = 0;
-    private final int originalVariant;
-    private int scrollbarGrabOffset = 0;
+    //refactore GUI positions
+    private static final int TABS_X = 10;
+    private static final int TABS_Y = 8;
+    private static final int TAB_WIDTH = 64;
+    private static final int TAB_HEIGHT = 13;
+    private static final int TAB_SPACING = 4;
+
+    private static final int CUSTOMBUTTON_HEIGHT = 13;
+
+    private static final int PREVIEW_X = 16;
+    private static final int PREVIEW_Y = 47;
+    private static final int PREVIEW_W = 64;
+    private static final int PREVIEW_H = 110;
+    private static final int CENTER_PREVIEW_SIZE = 35; // render center preview
+
+    private static final int NAME_X = 10;
+    private static final int NAME_Y = PREVIEW_Y - 12;
+    private static final int NAME_W = 55;
+    private static final int NAME_H = 18;
+
+    // constants for small preview layout
+    private static final int SKIN_CELL_SPACING = 1;
+    private static final int SKIN_CELL_W = 38;
+    private static final int SKIN_CELL_H = 56;
+    private static final int SKIN_COLUMNS = 3;
+    private static final int GRID_X = 83;
+    private static final int GRID_Y = 39;
+    private static final int GRID_W = (SKIN_COLUMNS * SKIN_CELL_W) + ((SKIN_COLUMNS - 1) * SKIN_CELL_SPACING);
+    private static final int GRID_H = (2 * SKIN_CELL_H) + ((2 - 1) * SKIN_CELL_SPACING);
+    private static final int ENTITY_PREVIEW_SIZE = 25; // small NPCs
+    private double skinScrollY = 0;
+    private double maxSkinScrollY = 0;
+
+    //constants for buttons
+    private static final int BTN_SKIN_X = GRID_X + GRID_W;
+    private static final int BTN_SKIN_Y = GRID_Y;
+    private static final int BTN_SKIN_W = 40;
+    private static final int BTN_SKIN_H = 13;
+    private static final int BTN_SKIN_SPACING = 6;
+
+    private static final int AI_BTN_W = 70;
+    private static final int AI_BTN_H = 13;
+    private static final int AI_BTN_SPACING = 6;
+
+    private static final int BTN_CUSTOM_WIDTH = 52;
+    private static final int BTN_CUSTOM_Y_OFFSET = (BTN_SKIN_H + BTN_SKIN_SPACING) * 2;
+
+    private int DIALOG_X;
+    private int DIALOG_Y;
+    private int DIALOG_W;
+    private int DIALOG_H;
+
+    protected enum Tab {
+        SKINS("Skins"), AI("Behavior"), DIALOGUES("Dialogues"), TRADES("Trades");
+        private final Text title;
+        Tab(String title) { this.title = Text.literal(title); }
+    }
+
+    //Core NPC DATA
+    protected final NPCEntity npc;
+    protected Tab currentTab;
+
+    //NPC cache
+    private final Map<Integer, NPCEntity> previewNpcCache = new HashMap<>();
+
+    //GUI Layout
+    protected int containerX, containerY, containerWidth, containerHeight;
     private TextFieldWidget nameInputField;
-    private ButtonWidget upslimButton;
-    private ButtonWidget updefaultButton;
+
+    //Skin handling
+    private List<Integer> skinsToRender = Collections.emptyList();
+    private int selectedSkinIndex = -1;
+    private int originalVariantIndex = 0;
+
+    private DialogueListWidget dialogueList;
+    private boolean selectionMode = false;
+
+    //AI state
+    private boolean battleBuddyState, stayState, followState, dialogueOrderedState;
+    private float wanderRadiusState;
+    private boolean previousStay, previousFollow, previousBB;
+
+    //Trade State
+    private String tradePresetState;
+
+    //Render Core
+    private NPCEntity previewNpc;
+
+    //smooth head rotation
     private float smoothHeadYaw = 0.0F;
     private float smoothPitch = 0.0F;
-    private NPCEntity previewCenter;
 
-    /**
-     * used to know if the variant should be saved.
-     */
-    boolean save = false;
+    private boolean pendingTabSwitch = false;
+    private Tab tabToSwitchTo = null;
 
-    boolean follow;
-    boolean stay;
-
-    int startVariantIndex = 0;
-
-    List<Integer> toRender = new ArrayList<>();
-
-
-    public AbstractNPCScreen(NPCEntity npc) {
-        this(npc, -1, NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin()));
-    }
-
-    public AbstractNPCScreen(NPCEntity npc, int selected, int defaultSkin) {
-        super(npc, Text.literal("Change NPC Variant"));
+    public AbstractNPCScreen(NPCEntity npc, Tab startingTab) {
+        super(Text.literal("Civilian Customizer"));
         this.npc = npc;
-        this.selectedVariant = selected;
-        toRender = getSkinsToRender();
-        this.originalVariant = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin()); // Save the current variant to initialize the preview
-        this.defaultSkin = defaultSkin;
-        this.follow = npc.isFollowing();
-        this.stay = npc.isPaused();
+        this.currentTab = startingTab;
+
+        this.battleBuddyState = npc.isBattleBuddy();
+        this.stayState = npc.isPaused();
+        this.followState = npc.isFollowing();
+        this.wanderRadiusState = npc.getWanderRadius();
+        this.dialogueOrderedState = npc.isDialogueOrdered();
+        this.tradePresetState = npc.getTradePreset();
     }
 
-    protected abstract List<Integer> getSkinsToRender();
+    // Legacy constructor for your other screens
+    public AbstractNPCScreen(NPCEntity npc) {
+        this(npc, Tab.SKINS);
+    }
 
+    // Override method for AbstractConfigScreen to identify this as a skin screen
+    protected boolean isSkinScreen() {
+        return true;
+    }
 
     @Override
     public boolean shouldPause() {
         return false;
     }
 
-    private void updateScrollBarDimensions() {
-        // Container dimensions
-        int containerHeight = 166;
-        int containerY = (this.height - containerHeight) / 2;
+    private void updateWanderAnchorCheck() {
+        boolean nowWander = !stayState && !followState && !battleBuddyState;
+        boolean previouslyNotWander = previousStay || previousFollow || previousBB;
 
-        // Total rows and visible rows calculation
-        int totalRows = (int) Math.ceil(((double) (toRender.size()) / 3)); // Total number of rows
-        int visibleRows = (containerHeight - 55) / ENTITY_SPACING; // Adjust relative to the container height
+        if (nowWander && previouslyNotWander) {
+            npc.setWanderAnchor(npc.getBlockPos());
+        }
 
-
-        this.maxScrollOffset = Math.max(0, (totalRows - visibleRows) * ENTITY_SPACING);
-
-        startVariantIndex = scrollOffset / ENTITY_SPACING * 3;
-
-        // Scroll bar total height based on the container
-        int scrollBarTotalHeight = containerHeight - 55; // Leave padding inside the container
-
-
-        this.scrollbarHeight = 15;
-        this.scrollbarY = containerY + 40 + (int) ((float) this.scrollOffset / this.maxScrollOffset * (scrollBarTotalHeight - this.scrollbarHeight));
+        // Update old state
+        previousStay = stayState;
+        previousFollow = followState;
+        previousBB = battleBuddyState;
     }
-
-    private void drawMainContainer(DrawContext context) {
-        // Texture Identifier moved here
-        Identifier guiTexture = Identifier.of("civiliansmod", "textures/gui/gui.png");
-
-        // Define the container size (ensure it matches the dimensions of 'gui.png')
-        int containerWidth = 256; // Width of 'gui.png'
-        int containerHeight = 166; // Height of 'gui.png'
-
-        // Calculate the position to center the container on the screen
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
-
-        int tintColor = 0xFFFFFFFF;
-
-        // Draw the container texture (centered)
-        context.drawTexture(
-                RenderPipelines.GUI_TEXTURED,   // Specify the render layer function
-                guiTexture,             // Texture Identifier
-                containerX,             // X position
-                containerY,             // Y position
-                0.0F,                      // U coordinate of the texture
-                0.0F,                      // V coordinate of the texture
-                containerWidth,         // Width of the region to draw
-                containerHeight,        // Height of the region to draw
-                containerWidth,         // Width of the texture
-                containerHeight,         // Height of the texture
-                tintColor
-        );
-    }
-
-    @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Render the custom GUI container (Your GUI background)
-        this.drawMainContainer(context);
-
-        // Render the default elements
-        super.render(context, mouseX, mouseY, delta);
-
-        // Center text
-        context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("Civilian Customizer"), this.width / 2, 30, 0xFFFFFF);
-
-        // Render center preview and variants
-        renderCenterPreview(context, mouseX, mouseY);
-
-        renderVariants(context, mouseX, mouseY, delta);
-
-        // Render the scroll bar
-        renderVanillaScrollBar(context);
-
-        // Render the name input field
-        this.nameInputField.render(context, mouseX, mouseY, delta);
-
-        this.upslimButton.visible = this instanceof CustomNPCScreen;
-        this.updefaultButton.visible = this instanceof CustomNPCScreen;
-    }
-
-// Update the init() method - add these buttons after the follow button:
 
     @Override
     protected void init() {
+        //safe old states
+        this.previousStay = this.stayState;
+        this.previousFollow = this.followState;
+        this.previousBB = this.battleBuddyState;
+
+        SkinIdentifier id = npc.getSkinManager().getIdSkin();
+        this.originalVariantIndex = NPCUtil.getSkins().indexOf(id);
+        this.selectedSkinIndex = this.originalVariantIndex;
+        if (CiviliansMod.DEBUG_GUI) {
+            CiviliansMod.LOGGER.info(
+                    "[GUI-OPEN] npc={} originalVariant={} selectedVariant={} skinId={}",
+                    npc.getUuid(),
+                    this.originalVariantIndex,
+                    this.selectedSkinIndex,
+                    id
+            );
+        }
+
+        previewNpcCache.clear();
         super.init();
-        int containerWidth = 256;
-        int containerHeight = 166;
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Wide"),
-                button -> MinecraftClient.getInstance().setScreen(new DefaultNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
-        ).dimensions(containerX + 82, containerY + 22, 39, 12).build());
+        this.wanderRadiusState = npc.getWanderRadius();
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Slim"),
-                button -> MinecraftClient.getInstance().setScreen(new SlimNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
-        ).dimensions(containerX + 121, containerY + 22, 40, 12).build());
+        //background box
+        this.containerWidth = 286;
+        this.containerHeight = 191;
+        this.containerX = (this.width - this.containerWidth) / 2;
+        this.containerY = (this.height - this.containerHeight) / 2;
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Custom"),
-                button -> MinecraftClient.getInstance().setScreen(new CustomNPCScreen(this.npc, this.selectedVariant, defaultSkin, selectedVariantIndex, follow, stay))
-        ).dimensions(containerX + 161, containerY + 22, 39, 12).build());
+        this.DIALOG_X = this.containerX + 69;
+        this.DIALOG_Y = this.containerY + 38;
+        this.DIALOG_W = 208;
+        this.DIALOG_H = 114;
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("Save"), button -> {
-            save = true;
-            this.close();
-            scrollOffset = 0;
-            updateScrollBarDimensions();
-        }).dimensions(containerX + 11, containerY + 136, 50, 14).build());
+        // center preview NPC
+        if (this.client != null && this.client.world != null && this.previewNpc == null) {
+            this.previewNpc = this.createPreviewNPCFromNPC(npc);
+        }
 
-        this.upslimButton = ButtonWidget.builder(Text.literal("↑Slim"), button ->
-                        SkinFolderManager.openFolder(SkinFolderManager.NPCModel.SLIM))
-                .dimensions(containerX + 202, containerY + containerHeight - 8, 49, 20).build();
-        this.addDrawableChild(upslimButton);
-
-        this.updefaultButton = ButtonWidget.builder(Text.literal("↑Wide"), button ->
-                        SkinFolderManager.openFolder(SkinFolderManager.NPCModel.WIDE))
-                .dimensions(containerX + 202, containerY + containerHeight +21, 49, 20).build();
-        this.addDrawableChild(updefaultButton);
-
+        // name field
         String currentName = npc.getCustomName() != null ? npc.getCustomName().getString() : "";
-        this.nameInputField = new TextFieldWidget(
-                this.textRenderer,
-                containerX + 5, containerY + 22, 62, 14, Text.literal("Enter NPC Name")
-        );
-
-        // Stay button
-        ButtonWidget pauseButton = ButtonWidget.builder(Text.literal(npc.isPaused() ? "Stay: On" : "Stay: Off"), button -> {
-                    boolean newState = !npc.isPaused();
-                    npc.setPaused(newState);
-                    button.setMessage(Text.literal(newState ? "Stay: On" : "Stay: Off"));
-
-                    // Update slider visibility
-                    if (wanderSlider != null) {
-                        wanderSlider.visible = !newState && !npc.isFollowing();
-                    }
-                }).dimensions(containerX + 202, containerY + containerHeight - 124, 49, 20)
-                .build();
-        this.addDrawableChild(pauseButton);
-
-        // Follow button
-        ButtonWidget followButton = ButtonWidget.builder(Text.literal(npc.isFollowing() ? "Follow: On" : "Follow: Off"), button -> {
-                    boolean newState = !npc.isFollowing();
-                    npc.setFollowing(newState);
-                    button.setMessage(Text.literal(newState ? "Follow: On" : "Follow: Off"));
-
-                    // Update slider visibility
-                    if (wanderSlider != null) {
-                        wanderSlider.visible = !newState && !npc.isPaused();
-                    }
-                }).dimensions(containerX + 202, containerY + containerHeight - 95, 49, 20)
-                .build();
-        this.addDrawableChild(followButton);
-
-        // NEW: Battle Buddy button
-        ButtonWidget battleBuddyButton = ButtonWidget.builder(
-                        Text.literal(npc.isBattleBuddy() ? "Battle: On" : "Battle: Off"),
-                        button -> {
-                            boolean newState = !npc.isBattleBuddy();
-                            npc.setBattleBuddy(newState);
-                            if (newState && MinecraftClient.getInstance().player != null) {
-                                npc.setOwner(MinecraftClient.getInstance().player);
-                            }
-                            button.setMessage(Text.literal(newState ? "Battle: On" : "Battle: Off"));
-                            // Update slider visibility
-                            if (wanderSlider != null) {
-                                wanderSlider.visible = !npc.isPaused() && !npc.isFollowing() && !npc.isBattleBuddy();
-                            }
-                        }).dimensions(containerX + 202, containerY + containerHeight - 66, 49, 20)
-                .build();
-        this.addDrawableChild(battleBuddyButton);
-
-        // NEW: Wander Scale slider (only visible when Stay and Follow are OFF)
-        if (this.wanderRadius <= 0) this.wanderRadius = 10.0F;
-        this.wanderSlider = new SliderWidget(
-                containerX + 202, containerY + containerHeight - 37, 49, 20,
-                Text.literal("Range: " + (int)this.wanderRadius),
-                (this.wanderRadius - 1.0) / 63.0 // Normalize to 0-1
-        ) {
-            @Override
-            protected void updateMessage() {
-                wanderRadius = (float)(this.value * 63.0 + 1.0);
-                this.setMessage(Text.literal("Range: " + (int)wanderRadius));
-            }
-
-            @Override
-            protected void applyValue() {
-                npc.setWanderRadius(wanderRadius);
-            }
-        };
-
-        this.wanderSlider.visible = !npc.isPaused() && !npc.isFollowing() && !npc.isBattleBuddy();
-        this.addDrawableChild(this.wanderSlider);
-
+        this.nameInputField = new TextFieldWidget(this.textRenderer, containerX + NAME_X, containerY + NAME_Y, NAME_W, NAME_H, Text.empty());
         this.nameInputField.setText(currentName);
         this.nameInputField.setMaxLength(32);
         this.addSelectableChild(this.nameInputField);
 
-        int totalRows = 22;
-        int visibleRows = (this.height - 100) / ENTITY_SPACING;
-        this.maxScrollOffset = Math.max(0, (totalRows - visibleRows) * ENTITY_SPACING);
-        updateScrollBarDimensions();
+        //buttons bottom
+
+        /* old buttons
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Save & Close"), b -> this.saveAndClose()).dimensions(containerX + containerWidth - 88, containerY + containerHeight - 28, 80, 20).build());
+        this.addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), b -> this.close()).dimensions(containerX + 8, containerY + containerHeight - 28, 80, 20).build());
+        */
+
+        this.addDrawableChild(new TextButtonWidget(containerX + containerWidth - 88, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Save & Close"), b -> this.saveAndClose()));
+        this.addDrawableChild(new TextButtonWidget(containerX + 8, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Cancel"), b -> this.close()));
+
+        int TABAREAX = containerX + TABS_X;
+        int TABAREAWIDTH = containerWidth - (TABS_X * 2);
+        int tabStartY = containerY + TABS_Y;
+
+        int tabCount = Tab.values().length;
+        int totalSpacing = (tabCount - 1) * TAB_SPACING;
+        int availableWidth = TABAREAWIDTH - totalSpacing;
+        int dynamicTabWidth = availableWidth / tabCount;
+        if (dynamicTabWidth < 40) dynamicTabWidth = 40;
+
+        int totalWidth = (tabCount * dynamicTabWidth) + ((tabCount - 1) * TAB_SPACING);
+        int startX = TABAREAX + (TABAREAWIDTH - totalWidth) / 2;
+
+        /*
+
+        this.addDrawableChild(ButtonWidget.builder(Tab.SKINS.title, b -> this.switchTab(Tab.SKINS)).dimensions(tabStartX, tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.AI.title, b -> this.switchTab(Tab.AI)).dimensions(tabStartX + (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.DIALOGUES.title, b -> this.switchTab(Tab.DIALOGUES)).dimensions(tabStartX + 2 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+        this.addDrawableChild(ButtonWidget.builder(Tab.TRADES.title, b -> this.switchTab(Tab.TRADES)).dimensions(tabStartX + 3 * (TAB_WIDTH + TAB_SPACING), tabStartY, TAB_WIDTH, TAB_HEIGHT).build());
+
+        */
+
+        int tx = startX;
+
+        for (int i = 0; i < tabCount; i++) {
+            Tab t = Tab.values()[i];
+
+            int tabColor = 0xFFFFFF;
+            boolean active = (t == currentTab);
+
+            this.addDrawableChild(new TextButtonWidget(tx, tabStartY, dynamicTabWidth, TAB_HEIGHT, t.title, b -> this.switchTab(t) ,tabColor));
+            tx += dynamicTabWidth + TAB_SPACING;
+        }
+        //tab widgets
+        this.initTabWidgets();
     }
 
-    // Update the close() method to save battle buddy and wander radius:
-    @Override
-    public void close() {
-        if (MinecraftClient.getInstance().player != null) {
-            if (!save) {
-                npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(this.defaultSkin));
-                npc.setFollowing(follow);
-                npc.setPaused(stay);
-                npc.setBattleBuddy(battleBuddy);
-                npc.setWanderRadius(wanderRadius);
-                super.close();
-                return;
-            }
+    private void switchTab(Tab newTab) {
+        if (this.currentTab != newTab) {
+            this.tabToSwitchTo = newTab;
+            this.pendingTabSwitch = true;
+        }
+    }
 
-            NPCDataPayload payload = new NPCDataPayload(
-                    npc.getUuid(),
-                    nameInputField.getText(),
-                    npc.isPaused(),
-                    npc.isFollowing(),
-                    npc.isBattleBuddy(),
-                    npc.getWanderRadius()
-            );
-            ClientPlayNetworking.send(payload);
+    public void openDialoguesTab() {
+        this.currentTab = Tab.DIALOGUES;
+        this.clearAndInit();
 
-            if (npc.getSkinManager().getIdSkin().custom()) {
-                ChangeSkinPayload payload1 = new ChangeSkinPayload(npc.getUuid(), npc.getSkinManager().getIdSkin().slim(), npc.getSkinManager().getIdSkin());
-                ClientPlayNetworking.send(payload1);
-            } else {
-                if (selectedVariantIndex == -1) {
-                    super.close();
-                    return;
-                }
-                ChangeBaseSkinPayload payload1 = new ChangeBaseSkinPayload(npc.getUuid(), selectedVariantIndex);
-                ClientPlayNetworking.send(payload1);
+        if (this.dialogueList != null) {
+            this.dialogueList.reloadFromNPC();
+        }
+    }
+
+    private void toggleSelection() {
+        selectionMode = !selectionMode;
+        if (dialogueList != null) {
+            dialogueList.setSelectionMode(selectionMode);
+        }
+    }
+
+    private void deleteSelected() {
+        if (dialogueList == null) return;
+
+        List<String> selected = dialogueList.getSelectedDialogues();
+        if (selected.isEmpty()) return;
+
+        String lang = MinecraftClient.getInstance().getLanguageManager().getLanguage();
+
+        for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+            List<String> all = dialogueList.getAllDialoguesFor(reason);
+            List<String> toRemove = selected.stream()
+                    .filter(all::contains)
+                    .toList();
+
+            if (!toRemove.isEmpty()) {
+                ClientPlayNetworking.send(new MassRemoveDialoguePayload(
+                        npc.getUuid(), lang, reason, toRemove
+                ));
             }
         }
 
-        super.close();
+        dialogueList.deleteLocal(selected);
+        dialogueList.reloadFromNPC();
     }
 
-    private void renderVanillaScrollBar(DrawContext context) {
-        int containerWidth = 256;
-        int containerHeight = 166;
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
+    private void deleteAll() {
+        if (dialogueList == null) return;
 
-        int scrollBarX = containerX + 70; // Positioned near the right edge of the container
-        int scrollBarY = containerY + 38; // Start 10 pixels below the top of the container
-        int scrollBarHeight = containerHeight - 51; // Adjust for padding (20 pixels)
+        String lang = MinecraftClient.getInstance().getLanguageManager().getLanguage();
 
-        context.fill(scrollBarX, scrollBarY, scrollBarX + 6, scrollBarY + scrollBarHeight, 0xFF202020);
-        context.fill(scrollBarX + 1, this.scrollbarY, scrollBarX + 5, this.scrollbarY + this.scrollbarHeight, 0xFFAAAAAA);
+        for (NpcChat.ChatReason reason : NpcChat.ChatReason.values()) {
+
+            if (!reason.isActive()) continue;
+            List<String> list = dialogueList.getAllDialoguesFor(reason);
+            if (!list.isEmpty()) {
+                ClientPlayNetworking.send(new MassRemoveDialoguePayload(npc.getUuid(), lang, reason, list
+                ));
+            }
+        }
+
+        dialogueList.deleteAllLocal();
+        dialogueList.reloadFromNPC();
     }
 
+    @Override
+    public void tick() {
+        super.tick();
+        if (pendingTabSwitch) {
+            this.currentTab = tabToSwitchTo;
+            this.clearAndInit();
+            pendingTabSwitch = false;
+            tabToSwitchTo = null;
+        }
+    }
 
+    private void initTabWidgets() {
+
+        int contentX = containerX + GRID_X;
+        int contentY = containerY + GRID_Y;
+
+        int contentWidth = 128;
+        switch (this.currentTab) {
+            case SKINS -> {
+
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                // active colors
+                boolean isWide   = this instanceof DefaultNPCScreen;
+                boolean isSlim   = this instanceof SlimNPCScreen;
+                boolean isCustom = this instanceof CustomNPCScreen;
+
+                int wideColor   = isWide   ? 0x00FF00 : 0xFFFFFF;
+                int slimColor   = isSlim   ? 0x00FF00 : 0xFFFFFF;
+                int customColor = isCustom ? 0x00FF00 : 0xFFFFFF;
+
+                //skins from cubclass
+                List<Integer> list = this.getSkinsToRender();
+                this.skinsToRender = (list != null) ? list : Collections.emptyList();
+
+                //skin type switch buttons
+                this.addDrawableChild(new TextButtonWidget(topX, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Wide"), btn -> this.client.setScreen(new DefaultNPCScreen(this.npc)),wideColor));
+                this.addDrawableChild(new TextButtonWidget(topX + BTN_SKIN_W, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Slim"), btn -> this.client.setScreen(new SlimNPCScreen(this.npc)), slimColor));
+                this.addDrawableChild(new TextButtonWidget(topX + (BTN_SKIN_W) * 2, topY, BTN_CUSTOM_WIDTH, BTN_SKIN_H, Text.literal("Custom"), btn -> this.client.setScreen(new CustomNPCScreen(this.npc)), customColor));
+            }
+            case AI -> {
+                List<Integer> list = this.getSkinsToRender();
+                this.skinsToRender = (list != null) ? list : Collections.emptyList();
+
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                // active colors
+                boolean isWide   = this instanceof DefaultNPCScreen;
+                boolean isSlim   = this instanceof SlimNPCScreen;
+                boolean isCustom = this instanceof CustomNPCScreen;
+
+                int wideColor   = isWide   ? 0x00FF00 : 0xFFFFFF;
+                int slimColor   = isSlim   ? 0x00FF00 : 0xFFFFFF;
+                int customColor = isCustom ? 0x00FF00 : 0xFFFFFF;
+
+                // skin switch buttons ai context
+                this.addDrawableChild(new TextButtonWidget(topX, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Wide"), btn -> this.client.setScreen(new DefaultNPCScreen(this.npc, Tab.AI)), wideColor));
+                this.addDrawableChild(new TextButtonWidget(topX + BTN_SKIN_W, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Slim"), btn -> this.client.setScreen(new SlimNPCScreen(this.npc, Tab.AI)), slimColor));
+                this.addDrawableChild(new TextButtonWidget(topX + (BTN_SKIN_W) * 2, topY, BTN_CUSTOM_WIDTH, BTN_SKIN_H, Text.literal("Custom"), btn -> this.client.setScreen(new CustomNPCScreen(this.npc, Tab.AI)), customColor));
+
+                this.wanderRadiusState = npc.getWanderRadius();
+                int x = containerX + BTN_SKIN_X + 6;
+                int y = contentY + 2;
+
+                final OptionWidget[] stayOption = new OptionWidget[1];
+                final OptionWidget[] followOption = new OptionWidget[1];
+                final OptionWidget[] battleBuddyOption = new OptionWidget[1];
+
+                //FOLLOW
+                followOption[0] = new OptionWidget(x, y + AI_BTN_H + AI_BTN_SPACING, AI_BTN_W, AI_BTN_H, Text.literal("Follow"), this.followState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    followOption[0].setShowCheckbox(true);
+                    if (this.followState != checked) {
+                        this.followState = checked;
+                    }
+                    if (checked) {
+                        //follow on, stay off
+                        this.stayState = false;
+                        stayOption[0].setChecked(false);
+                        //now the battlebuddycheckbox is activated
+                    } else {
+                        //follow off, battlebuddy should not activated
+                        if (this.battleBuddyState) {
+                            this.battleBuddyState = false;
+                            battleBuddyOption[0].setChecked(false);
+                        }
+                    }
+                    updateWanderAnchorCheck();
+                    //if stay and follow disable, wander slider should activated
+                    this.clearAndInit();
+                    }
+                );
+
+                //STAY
+                stayOption[0] = new OptionWidget(x, y, AI_BTN_W, AI_BTN_H, Text.literal("Stay"), this.stayState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    stayOption[0].setShowCheckbox(true);
+                    if (this.stayState != checked) {
+                        this.stayState = checked;
+                    }
+                    if (checked) {
+                        //stay on, follow off
+                        this.followState = false;
+                        followOption[0].setChecked(false);
+
+                        //battlebuddy should not activated
+                        if (this.battleBuddyState) {
+                            this.battleBuddyState = false;
+                            battleBuddyOption[0].setChecked(false);
+                        }
+                    } else {
+                        // Stay off , if follow activated, battlebuddy could activated
+                    }
+                    updateWanderAnchorCheck();
+                    this.clearAndInit();
+                });
+
+                this.addDrawableChild(stayOption[0]);
+                this.addDrawableChild(followOption[0]);
+
+                battleBuddyOption[0] = new OptionWidget(x, y + (AI_BTN_H + AI_BTN_SPACING) * 2, AI_BTN_W , AI_BTN_H, Text.literal("Battle Buddy"), this.battleBuddyState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    battleBuddyOption[0].setShowCheckbox(true);
+                    this.battleBuddyState = checked;
+
+                    if (checked) {
+                        // battlebuddy only on follow, strict follow activated
+                        this.followState = true;
+                        this.stayState = false;
+
+                        followOption[0].setChecked(true);
+                        stayOption[0].setChecked(false);
+
+                        // if follow, stay are not activated
+                    } else {
+                        // battlebuddy off
+                        // follow should be follow
+                    }
+                    updateWanderAnchorCheck();
+                    this.clearAndInit();
+                });
+
+                //battle buddy only clickable if floow activated
+                this.addDrawableChild(battleBuddyOption[0]);
+
+                //wanderslider only if no stay, no follow, no battlebuddy
+                if (!this.stayState && !this.followState && !this.battleBuddyState) {
+                    double sliderValue = MathHelper.clamp((wanderRadiusState - 4f) / 60f, 0.0, 1.0);
+
+                    int sliderY = y + (AI_BTN_H + AI_BTN_SPACING) * 3;
+
+                    SliderWidget wanderSlider =  new SliderWidget(x, sliderY,AI_BTN_W, AI_BTN_H, Text.literal("Wander: " + (int) wanderRadiusState), sliderValue) {
+
+                        @Override
+                        protected void updateMessage() {
+                            //only current mapped value
+                            setMessage(Text.literal("Wander: " + (int) getMappedValue()));
+                        }
+
+                        @Override
+                        protected void applyValue() {
+                            wanderRadiusState = (float) getMappedValue();
+                        }
+
+                        private double getMappedValue() {
+                            return 4.0 + this.value * 60.0;
+                        }
+                    };
+                    this.addDrawableChild(wanderSlider);
+                }
+                stayOption[0].active = !this.followState;
+                followOption[0].active = !this.stayState;
+                battleBuddyOption[0].active = this.followState;
+            }
+            case DIALOGUES -> {
+                this.dialogueList = new DialogueListWidget(npc, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H);
+
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                int bw = 85;
+                int spacing = 2;
+
+                //toogle selection mode
+                this.addDrawableChild(ButtonWidget.builder(Text.literal(selectionMode ? "Exit Select" : "Select Mode"),btn -> {
+                    toggleSelection();
+                    btn.setMessage(Text.literal(selectionMode ? "Exit Select" : "Select Mode"));
+                }).dimensions(topX, topY, bw, BTN_SKIN_H).build());
+
+                //delete selected
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete Selected"),btn -> {
+                    deleteSelected();
+                    // Refresh list after deletion
+                    if (dialogueList != null) dialogueList.reloadFromNPC();
+                }).dimensions(topX + bw + spacing, topY, bw, BTN_SKIN_H).build());
+
+                //delete all
+                this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete All"), btn -> {
+                    deleteAll();
+                    if (dialogueList != null) dialogueList.reloadFromNPC();
+                }).dimensions(topX + (bw + spacing) * 2, topY, bw, BTN_SKIN_H).build());
+            }
+        }
+    }
+
+    //abstract method for subclasses to define which skin indices they want to render
+    protected abstract List<Integer> getSkinsToRender();
+
+    //render
+    @Override
+    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        //background texture
+        Identifier guiTexture =
+                (this.currentTab == Tab.DIALOGUES)
+                        ? Identifier.of("civiliansmod", "textures/gui/largerdialogue.png")
+                        : Identifier.of("civiliansmod", "textures/gui/largergui.png");
+        context.drawTexture(RenderPipelines.GUI_TEXTURED, guiTexture, containerX, containerY, 0, 0, containerWidth, containerHeight, containerWidth, containerHeight,0xFFFFFFFF);
+
+        //vanilla render
+        super.render(context, mouseX, mouseY, delta);
+
+        // name field
+        this.nameInputField.render(context, mouseX, mouseY, delta);
+
+        //title and tab title
+        context.drawText(this.textRenderer, this.title, this.containerX + 8, this.containerY + 8, 0x404040, false);
+        context.drawText(this.textRenderer, this.currentTab.title, this.containerX + 120, this.containerY + 8, 0x404040, false);
+
+        //big center NPC
+        this.renderEntityPreview(context, mouseX, mouseY);
+
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            dialogueList.renderWidget(context, mouseX, mouseY, delta);
+        }
+
+        //tab overlay
+        switch (this.currentTab) {
+            case SKINS, AI -> this.renderSkinsTab(context, mouseX, mouseY);
+            case DIALOGUES -> {}
+            default -> {}
+        }
+    }
+
+    //skins tab
+    private void renderSkinsTab(DrawContext context, int mouseX, int mouseY) {
+        if (skinsToRender == null || skinsToRender.isEmpty()) {
+            context.drawText(this.textRenderer, Text.literal("No skins found"),
+                    containerX + 120, containerY + 50, 0xAAAAAA, false);
+            return;
+        }
+
+        int viewLeft   = containerX + GRID_X;
+        int viewTop    = containerY + GRID_Y;
+        int viewRight  = viewLeft + GRID_W;
+        int viewBottom = viewTop + GRID_H;
+
+        int contentX = viewLeft;
+        int contentY = viewTop;
+
+        context.enableScissor(viewLeft, viewTop, viewRight, viewBottom);
+
+        int totalRows = (int)Math.ceil(skinsToRender.size() / (double)SKIN_COLUMNS);
+        int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
+
+        maxSkinScrollY = Math.max(0, contentHeight - GRID_H);
+        skinScrollY = MathHelper.clamp(skinScrollY, 0, maxSkinScrollY);
+
+        for (int i = 0; i < skinsToRender.size(); i++) {
+            int col = i % SKIN_COLUMNS;
+            int row = i / SKIN_COLUMNS;
+
+            int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
+            int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - (int) skinScrollY;
+
+            int skinIndex = skinsToRender.get(i);
+
+            int cellBottom = skinY + SKIN_CELL_H;
+            int cellTop = skinY;
+            if (cellBottom < viewTop || cellTop > viewBottom) {
+                continue;
+            }
+            renderVariantPreview(context, skinX, skinY, skinIndex, mouseX, mouseY);
+        }
+        context.disableScissor();
+        renderSkinScrollbar(context);
+    }
+
+    private void renderSkinScrollbar(DrawContext context) {
+
+        if (maxSkinScrollY <= 0) return;
+
+        int barWidth = 7;
+
+        int barX = containerX + GRID_X -12;
+        int barY = containerY + GRID_Y;
+        int barHeight = GRID_H;
+
+        context.fill(barX, barY, barX + barWidth, barY + barHeight, 0x22000000);
+
+        float ratio = (float)(GRID_H / (float)(maxSkinScrollY + GRID_H));
+        int thumbHeight = Math.max(24, (int)(GRID_H * ratio));
+
+        int thumbY = barY + (int)((skinScrollY / maxSkinScrollY) * (GRID_H - thumbHeight));
+
+        double mx = MinecraftClient.getInstance().mouse.getX() / MinecraftClient.getInstance().getWindow().getScaleFactor();
+        double my = MinecraftClient.getInstance().mouse.getY() / MinecraftClient.getInstance().getWindow().getScaleFactor();
+
+        boolean hovered =
+                mx >= barX && mx <= barX + barWidth &&
+                        my >= thumbY && my <= thumbY + thumbHeight;
+
+        int thumbColor = hovered ? 0xFFFFFFFF : 0xFF999999;
+
+        context.fill(barX + 1, thumbY + 1, barX + barWidth - 1, thumbY + thumbHeight - 1, thumbColor);
+    }
+    private void renderVariantPreview(DrawContext context, int x, int y, int skinIndex, int mouseX, int mouseY) {
+        int width = SKIN_CELL_W;
+        int height = SKIN_CELL_H;
+
+        boolean selected = (skinIndex == this.selectedSkinIndex);
+        boolean hovered = mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+
+        int backgroundColor = hovered ? 0x55FFFFFF : 0x33000000;
+        int borderColor = selected ? 0xFFFFFFFF : 0xFFAAAAAA;
+
+        // draw background
+        context.fill(x, y, x + width, y + height, backgroundColor);
+
+        // draw border
+        int b = 1;
+        context.fill(x, y, x + width, y + b, borderColor);
+        context.fill(x, y + height - b, x + width, y + height, borderColor);
+        context.fill(x, y, x + b, y + height, borderColor);
+        context.fill(x + width - b, y, x + width, y + height, borderColor);
+
+        // small NPC preview inside cell
+        NPCEntity preview = getPreviewNPC(skinIndex);
+        int centerX = x + width / 2;
+        int centerY = y + height - 3;
+        renderEntity(context, centerX, centerY, ENTITY_PREVIEW_SIZE, preview, false);
+    }
+
+    // mouseclick
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        // Container dimensions
-        int containerWidth = 256;
-        int containerX = (this.width - containerWidth) / 2;
+        if (this.currentTab == Tab.SKINS || this.currentTab == Tab.AI) {
+            int contentX = containerX + GRID_X;
+            int contentY = containerY + GRID_Y;
 
-        // Scroll bar position
-        int scrollBarX = containerX + 70; // Match `renderVanillaScrollBar`
-        // Match `renderVanillaScrollBar`
+            for (int i = 0; i < skinsToRender.size(); i++) {
+                int col = i % SKIN_COLUMNS;
+                int row = i / SKIN_COLUMNS;
 
-        // Check if clicking within the scroll handle
-        if (mouseX >= scrollBarX && mouseX <= scrollBarX + 6 && mouseY >= this.scrollbarY && mouseY <= this.scrollbarY + this.scrollbarHeight) {
-            this.isScrolling = true;
+                int skinX = contentX + col * (SKIN_CELL_W + SKIN_CELL_SPACING);
+                int skinY = contentY + row * (SKIN_CELL_H + SKIN_CELL_SPACING) - (int) skinScrollY;
 
-            // Capture the click offset within the scroll handle
-            this.scrollbarGrabOffset = (int) (mouseY - this.scrollbarY);
-            return true;
-        }
-        if (button == 0) { // Left mouse button
-            int panelX = /*(3 * containerX / 4)*/  (containerX + 83);
+                int width = SKIN_CELL_W;
+                int height = SKIN_CELL_H;
 
-            // Detect which variant is clicked based on the selected tab
-            int clickedVariant = detectClickedVariant(mouseX, mouseY, panelX);
+                if (mouseX >= skinX && mouseX < skinX + width &&  mouseY >= skinY && mouseY < skinY + height) {
+                    int newSkinIndex = skinsToRender.get(i);
+                    this.selectedSkinIndex = newSkinIndex;
 
-            if (clickedVariant != -1) {
-                this.selectedVariant = clickedVariant;
-                if (clickedVariant < toRender.size())
-                    this.selectedVariantIndex = toRender.get(clickedVariant);
-                this.npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedVariantIndex)); // Update NPC variant immediately
+                    CiviliansMod.LOGGER.info(
+                            "[GUI-SELECT] npc={} clickedVariant={}",
+                            npc.getUuid(),
+                            newSkinIndex
+                    );
 
-                if (!NPCUtil.getNPCTexture(clickedVariant).custom())
-                    this.npc.getSkinManager().setBaseVariant(selectedVariantIndex);
-
-                try (ErrorReporter.Logging logging = new ErrorReporter.Logging(npc.getErrorReporterContext(), CiviliansMod.LOGGER)) {
-                    NbtWriteView nbtWriteView = NbtWriteView.create(logging, npc.getRegistryManager());
-                    npc.writeData(nbtWriteView);
-                } catch (Exception var11) {
-                    CiviliansMod.LOGGER.warn("Failed to save player data for {}", npc.getName().getString());
+                    // update center preview immediately
+                    this.previewNpc = previewNpcCache.computeIfAbsent(newSkinIndex, this::createPreviewNPC);
+                    return true;
                 }
             }
         }
-
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            if (dialogueList.mouseClicked(mouseX, mouseY, button)) return true;
+        }
         return super.mouseClicked(mouseX, mouseY, button);
-    }
-
-
-    private int detectClickedVariant(double mouseX, double mouseY, int panelX/*, boolean isDefaultTab*/) {
-        int containerHeight = 166;
-        int containerY = (this.height - containerHeight) / 2;
-        int startY = containerY + 39; // Matches where variants start rendering
-
-        // Column setup
-        int columnWidth = (COLUMN_WIDTH / 3) - 5; // Adjusted for columns in renderVariants
-        int columnOffset = 1;
-
-        // Strict container boundaries
-        if (mouseY < containerY || mouseY > containerY + containerHeight) {
-            return -1; // Mouse click is entirely outside the vertical container area
-        }
-
-        int minIndex = Math.min(toRender.size() - this.startVariantIndex, 9);
-
-        // Loop through all rendered variants
-        for (int i = 0; i <= minIndex; i++) {
-            // Current variant's row and column
-            int rowIndex = (i) / 3; // Determine row
-            int columnIndex = (i) % 3; // Determine column
-
-
-            // Variant's calculated position
-            int xPosition = panelX + columnIndex * (columnWidth + columnOffset) /*+ xRightOffset*/;
-            int yPosition = startY + rowIndex * ENTITY_SPACING /*- scrollOffset*/;
-
-            // Extra check: Skip rows rendered above the visible container
-            if (yPosition < containerY || yPosition + ENTITY_SPACING > containerY + containerHeight) {
-                continue; // Skip variants not actually visible
-            }
-
-            // Check if the mouse position falls within the variant's hover box
-            if (mouseX >= xPosition && mouseX <= xPosition + columnWidth &&
-                    mouseY >= yPosition && mouseY <= yPosition + ENTITY_SPACING) {
-                return this.startVariantIndex + i; // Return the clicked variant index
-            }
-        }
-
-        return -1;
-    }
-
-
-    private void renderCenterPreview(DrawContext context, int mouseX, int mouseY) {
-        if (previewCenter == null) {
-            previewCenter = createBaseCenterPreviewNPC();
-        }
-        NPCEntity previewNPC = previewCenter;
-
-        // Determine which skin/variant to preview
-        int variantToRender = (selectedVariantIndex == -1) ? originalVariant : selectedVariantIndex;
-        if (variantToRender >= 0) {
-            previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(variantToRender));
-        }
-
-        //Disable AI and Silent
-        previewNPC.setAiDisabled(true);
-        previewNPC.setSilent(true);
-
-        // GUI size and position
-        int guiWidth = 256;
-        int guiHeight = 166;
-        int guiX = (this.width - guiWidth) / 2;
-        int guiY = (this.height - guiHeight) / 2;
-
-        //center preview position
-        int previewX = guiX + 36;
-        int previewY = guiY + (guiHeight / 2) + 34;
-
-        // Calculate head rotation to follow the mouse
-        float deltaX = (float) (mouseX - previewX);
-        float deltaY = (float) (mouseY - previewY);
-
-        // Set head yaw (horizontal rotation) and pitch (vertical rotation) for more subtle movements
-        float sensitivityFactor = 2.0F; // Higher value means more subtle movements
-        float targetHeadYaw = (-(float) Math.atan2(deltaX, 50.0) * (180F / (float) Math.PI)) / sensitivityFactor;
-        float targetPitch = ((float) Math.atan2(deltaY, 50.0) * (180F / (float) Math.PI)) / sensitivityFactor;
-
-        // Clamp the pitch to prevent extreme angles (e.g., head flipping)
-        targetHeadYaw = Math.max(-35.0F, Math.min(35.0F, targetHeadYaw));
-        targetPitch = Math.max(-30.0F, Math.min(30.0F, targetPitch));
-
-        smoothHeadYaw += (targetHeadYaw - smoothHeadYaw) * 0.15F;
-        smoothPitch += (targetPitch - smoothPitch) * 0.15F;
-
-        float bodyYaw = smoothHeadYaw * 0.1F;
-
-        previewNPC.setYaw(bodyYaw);
-        previewNPC.bodyYaw = bodyYaw;
-        previewNPC.setHeadYaw(smoothHeadYaw);
-        previewNPC.setPitch(smoothPitch);
-
-        // Render the entity
-        renderEntity(context, previewX, previewY, 35, previewNPC);
-    }
-
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (this.isScrolling) {
-
-            int containerHeight = 166;
-            int containerY = (this.height - containerHeight) / 2;
-
-            // Scroll bar position and height
-            int scrollBarY = containerY + 40; // Match `renderVanillaScrollBar` and `updateScrollBarDimensions`
-            int scrollBarHeight = containerHeight - 55;
-
-            // Adjust relativeY to account for the grab offset
-            float relativeY = (float) (mouseY - scrollBarY - this.scrollbarGrabOffset);
-            float scrollPercent = relativeY / (scrollBarHeight - this.scrollbarHeight);
-
-            // Calculate new scrollOffset and clamp
-            this.scrollOffset = Math.max(0, Math.min((int) (scrollPercent * maxScrollOffset), maxScrollOffset));
-
-            // Snap scroll offset to the nearest row
-            this.scrollOffset = (this.scrollOffset / ENTITY_SPACING) * ENTITY_SPACING;
-
-            updateScrollBarDimensions();
-            return true;
-        }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
     }
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
-        this.scrollOffset = (short) Math.max(0, Math.min(this.scrollOffset - (int) (verticalAmount * ENTITY_SPACING), maxScrollOffset));
-        updateScrollBarDimensions();
+        // Skin scrolling
+        if (this.currentTab == Tab.SKINS || this.currentTab == Tab.AI) {
+            int totalRows = (int) Math.ceil((double) skinsToRender.size() / SKIN_COLUMNS);
+            int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
+
+            skinScrollY = MathHelper.clamp(
+                    skinScrollY - verticalAmount * 10,
+                    0,
+                    maxSkinScrollY
+            );
+            return true;
+        }
+        if (currentTab == Tab.DIALOGUES && dialogueList != null) {
+            if (dialogueList.mouseScrolled(mouseX, mouseY, verticalAmount)) return true;
+        }
         return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
     }
 
-    @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        this.isScrolling = false;
-
-        // Reset the grab offset after releasing the scroll bar
-        this.scrollbarGrabOffset = 0;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-
-
-    private void renderVariants(DrawContext context, int mouseX, int mouseY, float ignoredDelta) {
-        int containerWidth = 256;
-        int containerHeight = 166;
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
-
-        // Initial Y position relative to the container
-        int startY = containerY + 61;
-        int panelX = containerX + 77; // Position Default tab models within the container
-
-        // Adjust spacing for columns for better alignment
-        int columnWidth = (COLUMN_WIDTH / 3) - 10; // Reduced width to bring columns closer
-        int columnOffset = 6; // Fine-tune additional space between columns
-
-        int minIndex = Math.min(toRender.size() - this.startVariantIndex, 6);
-        for (int i = startVariantIndex; i < this.startVariantIndex + minIndex; i++) {
-            // Compute the row and column positions for each variant
-            int rowIndex = (i - startVariantIndex) / 3; // Divide into groups of 3 per row
-            int columnIndex = (i - startVariantIndex) % 3; // Determine which column the model is in
-            int xPosition = panelX + columnIndex * (columnWidth + columnOffset); // Adjust horizontal position
-            int yPosition = startY + rowIndex * ENTITY_SPACING; // Adjust vertical position
-            // Render the model for the current variant
-            renderVariantPreview(context, xPosition, yPosition, i, mouseX, mouseY);
-        }
-    }
-
-    private void renderVariantPreview(DrawContext context, int x, int y, int variantIndex, int mouseX, int mouseY) {
-        NPCEntity previewNPC = createPreviewNPC(variantIndex);
-
-        previewNPC.setHeadYaw(0.0F);
-        previewNPC.setYaw(0.0F);
-        previewNPC.bodyYaw = 0.0F;
-        previewNPC.setPitch(0.0F);
-
-        // Container dimensions
-        int containerWidth = 256;
-        int containerHeight = 166;
-        int containerX = (this.width - containerWidth) / 2;
-        int containerY = (this.height - containerHeight) / 2;
-
-        // Clip rendering to the container bounds
-        int maxX = containerX + containerWidth;
-        int maxY = containerY + containerHeight;
-
-        // Adjust the hover box dimensions
-        int adjustedX = x + 5; // Narrow the hover box by reducing 1 pixel from the left
-        int adjustedY = y - 24; // Move the top of the box higher
-        int entityWidth = 39;   // Set a fixed width (e.g., 50 pixels)
-        int entityHeight = ENTITY_SPACING;  // Set a fixed height (e.g., 50 pixels)
-
-        // Ensure the variant preview stays within the container bounds
-        if (adjustedX + entityWidth > maxX || adjustedX < containerX)
-            return; // Skip rendering if out of bounds horizontally
-        if (adjustedY + entityHeight > maxY || adjustedY < containerY)
-            return; // Skip rendering if out of bounds vertically
-
-        // Render the entity preview
-        renderEntity(context, x + ENTITY_PREVIEW_SIZE, y + (ENTITY_SPACING / 2), ENTITY_PREVIEW_SIZE, previewNPC);
-        // Check if the mouse is hovering over this variant
-        if (mouseX >= adjustedX && mouseX <= adjustedX + entityWidth
-                && mouseY >= adjustedY && mouseY <= adjustedY + entityHeight) {
-            // Draw a white rectangle outline around the entity preview by filling in each edge
-            int outlineThickness = 2; // Thickness of the outline
-
-            // Top border
-            context.fill(adjustedX, adjustedY,
-                    adjustedX + entityWidth, adjustedY + outlineThickness,
-                    0xFFFFFFFF);
-            // Bottom border
-            context.fill(adjustedX, adjustedY + entityHeight - outlineThickness,
-                    adjustedX + entityWidth, adjustedY + entityHeight,
-                    0xFFFFFFFF);
-            // Left border
-            context.fill(adjustedX, adjustedY,
-                    adjustedX + outlineThickness, adjustedY + entityHeight,
-                    0xFFFFFFFF);
-            // Right border
-            context.fill(adjustedX + entityWidth - outlineThickness, adjustedY,
-                    adjustedX + entityWidth, adjustedY + entityHeight,
-                    0xFFFFFFFF);
-        }
-    }
-
-    private NPCEntity createPreviewNPC(int variantIndex) {
-        World world = MinecraftClient.getInstance().world;
-
-        @SuppressWarnings("unchecked")// Create a new preview NPC
-        NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
-
-        //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(toRender.get(variantIndex)));
-
-        // These properties disable animations and sounds during preview
-        previewNPC.setAiDisabled(true);
-        previewNPC.setSilent(true);
-        previewNPC.setHeadYaw(0.0F);
-
-        return previewNPC;
-    }
-
-    private NPCEntity createCenterPreviewNPC(int skinId) {
-        World world = MinecraftClient.getInstance().world;
-
-        @SuppressWarnings("unchecked")// Create a new preview NPC
-        NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
-
-        //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(skinId));
-
-        // These properties disable animations and sounds during preview
-        previewNPC.setAiDisabled(true);
-        previewNPC.setSilent(true);
-        previewNPC.setHeadYaw(0.0F);
-
-        return previewNPC;
-    }
-
-    private NPCEntity createBaseCenterPreviewNPC() {
-        World world = MinecraftClient.getInstance().world;
-
-        @SuppressWarnings("unchecked")// Create a new preview NPC
-        NPCEntity previewNPC = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
-
-        //we set the slim variant
-        previewNPC.getSkinManager().setIdSkin(npc.getSkinManager().getIdSkin());
-
-        // These properties disable animations and sounds during preview
-        previewNPC.setAiDisabled(true);
-        previewNPC.setSilent(true);
-        previewNPC.setHeadYaw(0.0F);
-
-        return previewNPC;
-    }
+    //ADD RENDERCORE
 
     @SuppressWarnings("unchecked")
-    private void renderEntity(DrawContext context, int x, int y, int scale, Entity entity) {
-        if (!(entity instanceof LivingEntity living)) return;
-
+    private void renderEntity(DrawContext context, int x, int y, int scale, LivingEntity entity, boolean isPreview) {
         MinecraftClient client = MinecraftClient.getInstance();
         EntityRenderDispatcher dispatcher = client.getEntityRenderDispatcher();
 
-        EntityRenderer<LivingEntity, ? extends EntityRenderState> renderer =
-                (EntityRenderer<LivingEntity, ? extends EntityRenderState>) dispatcher.getRenderer(living);
+        // Get renderer
+        var renderer = (EntityRenderer<LivingEntity, ? extends EntityRenderState>) dispatcher.getRenderer(entity);
 
-        boolean isPreview = (scale > 30); // Center-Preview higher (~35), varianten are lower (~25)
-        renderCaptured(renderer, living, context, x, y, scale, client, isPreview);
+        // Open renderCaptured to bind wildcard to S
+        renderCaptured(renderer, entity, context, x, y, scale, client, isPreview);
     }
-
 
     private <S extends EntityRenderState> void renderCaptured(
             EntityRenderer<LivingEntity, S> renderer,
-            LivingEntity living,
+            LivingEntity entity,
             DrawContext context,
             int x, int y, int scale,
             MinecraftClient client,
             boolean isPreview) {
 
-        S renderState = renderer.createRenderState();
-        renderer.updateRenderState(living, renderState, client.getRenderTickCounter().getTickProgress(false));
+        S state = renderer.createRenderState();
+        renderer.updateRenderState(entity, state, client.getRenderTickCounter().getTickProgress(false));
 
-        // only for CenterPreview
-        if (isPreview && renderState instanceof net.minecraft.client.render.entity.state.LivingEntityRenderState ls) {
-            // use Entity
-            float headYaw = living.headYaw;
-            float pitch = living.getPitch();
-            float bodyYaw = headYaw * 0.1F;
+        if (state instanceof net.minecraft.client.render.entity.state.LivingEntityRenderState s) {
+            if (isPreview) {
+                float headYaw = entity.headYaw;
+                float bodyYaw = headYaw * 0.1F;
+                s.bodyYaw = bodyYaw;
+                s.relativeHeadYaw = headYaw - bodyYaw;
+                s.pitch = entity.getPitch();
+            }
+            if (!isPreview) {
+                s.bodyYaw = 0.0F;
+                s.relativeHeadYaw = 0.0F;
+                s.pitch = 0.0F;
 
-            ls.bodyYaw = bodyYaw;
-            ls.relativeHeadYaw = headYaw - bodyYaw;
-            ls.pitch = pitch;
+                s.limbSwingAnimationProgress = 0.0F;
+                s.limbSwingAmplitude = 0.0F;
+                s.deathTime = 0.0F;
+                s.shaking = false;
+                s.hurt = false;
+                s.touchingWater = false;
+                s.usingRiptide = false;
+            }
         }
 
-        //rotation fix
         Vector3f translation = new Vector3f(0f, 0f, 0f);
-        Quaternionf rotation = new Quaternionf();
-
-        //need to rotate 180°
-        if (isPreview) {
-            rotation.rotateZ((float) Math.toRadians(180f))
-                    .rotateY((float) Math.toRadians(192.5f));
-                    //.rotateX((float) Math.toRadians(-3.5f));
-        } else {
-            rotation.rotateZ((float) Math.toRadians(180f))
-                    .rotateY((float) Math.toRadians(165f));
-                    //.rotateX((float) Math.toRadians(7f));
-        }
-
+        Quaternionf rotation = new Quaternionf()
+                .rotateZ((float) Math.toRadians(180f))
+                .rotateY((float) Math.toRadians(isPreview ? 192.5f : 165f));
         Quaternionf cameraAngle = new Quaternionf().rotationX((float) Math.toRadians(18f));
 
-        context.addEntity(renderState, scale, translation, rotation, cameraAngle,
-                x - scale, y - (int)(scale * 2.5f), x + scale, y + (int)(scale * 2.5f));
+        int half = (int) (scale * 2.5f);
+        context.addEntity(state, scale, translation, rotation, cameraAngle,
+                x - scale, y - half, x + scale, y + half);
     }
-    public AbstractNPCScreen(NPCEntity npc, int selected, int defaultSkin, int selectedVariantIndex,
-                             boolean follow, boolean stay, boolean battleBuddy, float wanderRadius) {
-        super(npc, Text.literal("Change NPC Variant"));
-        this.npc = npc;
-        this.selectedVariant = selected;
-        toRender = getSkinsToRender();
-        this.selectedVariantIndex = selectedVariantIndex;
-        this.originalVariant = NPCUtil.getSkins().indexOf(npc.getSkinManager().getIdSkin());
-        this.defaultSkin = defaultSkin;
-        this.follow = follow;
-        this.stay = stay;
-        this.battleBuddy = battleBuddy;
-        this.wanderRadius = wanderRadius;
+
+    //centerpreview logic
+
+    private void renderEntityPreview(DrawContext context, int mouseX, int mouseY) {
+        if (this.previewNpc == null) {
+            this.previewNpc = createPreviewNPCFromNPC(npc);
+        }
+
+        NPCEntity preview = this.previewNpc;
+
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+
+        int px = containerX + PREVIEW_X + PREVIEW_W / 2-10;
+        int py = containerY + PREVIEW_Y + PREVIEW_H - 10-18;
+
+        float dx = (float)(mouseX - px);
+        float dy = (float)(mouseY - py);
+
+        float targetYaw = (-(float)Math.atan2(dx, 50.0) * (180F / (float)Math.PI)) / 2.0F;
+        float targetPitch = ((float)Math.atan2(dy, 50.0) * (180F / (float)Math.PI)) / 2.0F;
+
+        targetYaw   = MathHelper.clamp(targetYaw, -35.0F, 35.0F);
+        targetPitch = MathHelper.clamp(targetPitch, -30.0F, 30.0F);
+
+        smoothHeadYaw  += (targetYaw  - smoothHeadYaw) * 0.15F;
+        smoothPitch    += (targetPitch - smoothPitch) * 0.15F;
+
+        float bodyYaw = smoothHeadYaw * 0.1F;
+        preview.setYaw(bodyYaw);
+        preview.bodyYaw = bodyYaw;
+        preview.setHeadYaw(smoothHeadYaw);
+        preview.setPitch(smoothPitch);
+
+        renderEntity(context, px, py, CENTER_PREVIEW_SIZE, preview, true);
     }
-    public AbstractNPCScreen(NPCEntity npc, int selected, int defaultSkin, int selectedVariantIndex,
-                             boolean follow, boolean stay) {
-        this(npc, selected, defaultSkin, selectedVariantIndex, follow, stay,
-                npc.isBattleBuddy(), npc.getWanderRadius());
+
+    //preview NPC creation
+
+    @SuppressWarnings("unchecked")
+    private NPCEntity createPreviewNPC(int skinId) {
+        World world = MinecraftClient.getInstance().world;
+        NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
+
+        SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
+        preview.getSkinManager().setIdSkin(id);
+
+        if (id.custom()) {
+            byte[] data = NPCUtil.images.get(id);
+            if (data != null) preview.getSkinManager().setSkinByteArray(data);
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+        preview.setHeadYaw(0.0F);
+
+        return preview;
+    }
+
+    private NPCEntity createPreviewNPCFromNPC(NPCEntity npc) {
+        World world = MinecraftClient.getInstance().world;
+        NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
+
+        SkinIdentifier id = npc.getSkinManager().getIdSkin();
+
+        // Set identifier (Slim + Path)
+        preview.getSkinManager().setIdSkin(id);
+
+        // Custom skin data must be re-applied manually
+        if (id.custom()) {
+            byte[] data = npc.getSkinManager().getSkinByteArray();
+            if (data != null) {
+                preview.getSkinManager().setSkinByteArray(data);
+            }
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+        preview.setHeadYaw(0.0F);
+
+        return preview;
+    }
+
+    private NPCEntity getPreviewNPC(int skinId) {
+        if (previewNpcCache.containsKey(skinId)) {
+            return previewNpcCache.get(skinId);
+        }
+
+        World world = MinecraftClient.getInstance().world;
+        NPCEntity preview = new NPCEntity((EntityType<? extends PathAwareEntity>) npc.getType(), world);
+
+        SkinIdentifier id = NPCUtil.getNPCTexture(skinId);
+        preview.getSkinManager().setIdSkin(id);
+
+        if (id.custom()) {
+            byte[] data = NPCUtil.images.get(id);
+            if (data != null) preview.getSkinManager().setSkinByteArray(data);
+            preview.getSkinManager().setDefaultSkin(false);
+        } else {
+            preview.getSkinManager().setDefaultSkin(true);
+        }
+
+        preview.refreshSkinModel();
+        preview.setAiDisabled(true);
+        preview.setSilent(true);
+        preview.setHeadYaw(0.0F);
+
+        previewNpcCache.put(skinId, preview);
+        return preview;
+    }
+
+    private SkinIdentifier getSelectedSkin() {
+        if (selectedSkinIndex < 0) {
+            return npc.getSkinManager().getIdSkin();
+        }
+        return NPCUtil.getSkins().get(selectedSkinIndex);
+    }
+
+    // save and close
+    private void saveAndClose() {
+        ClientPlayNetworking.send(new NPCDataPayload(npc.getUuid(), nameInputField.getText(), stayState, followState, battleBuddyState, wanderRadiusState, dialogueOrderedState, tradePresetState));
+        SkinIdentifier selected = getSelectedSkin();
+
+        updateWanderAnchorCheck();
+
+        if (selectedSkinIndex == -1) {
+            this.close();
+            return;
+        }
+
+        CiviliansMod.LOGGER.info("[GUI-SAVE] npc={} originalVariant={} selectedVariant={} isCustom={}", npc.getUuid(), originalVariantIndex, selectedSkinIndex, selected.custom());
+
+        if (selected.custom()) {
+            byte[] bytes = NPCUtil.images.get(selected);
+            boolean slim = selected.slim();
+
+            if (bytes == null) {
+                CiviliansMod.LOGGER.warn("[GUI-SAVE] Custom skin selected but no skin bytes present npc={}", npc.getUuid());
+                this.close();
+                return;
+            }
+            CiviliansMod.LOGGER.info("[GUI] Save custom skin npc={} custom={} bytes={}", npc.getUuid(), slim, npc.getSkinManager().getSkinByteArray() == null ? -1 : npc.getSkinManager().getSkinByteArray().length);
+
+            ClientPlayNetworking.send(new ChangeSkinPayload(npc.getUuid(), slim, bytes));
+
+            npc.getSkinManager().setSkinByteArray(bytes);
+            npc.getSkinManager().setIdSkin(new SkinIdentifier(Identifier.of(CiviliansMod.MOD_ID, "npc_skin_" + npc.getUuid()), slim, true));
+            npc.getSkinManager().setDefaultSkin(false);
+            npc.refreshSkinModel();
+
+        } else {
+            if (selectedSkinIndex != originalVariantIndex) {
+                npc.setTrackedSkinVariant(selectedSkinIndex);
+                npc.getSkinManager().setBaseVariant(selectedSkinIndex);
+            }
+            npc.getSkinManager().setIdSkin(NPCUtil.getNPCTexture(selectedSkinIndex));
+            npc.getSkinManager().setDefaultSkin(true);
+            ClientPlayNetworking.send(new ChangeBaseSkinPayload(npc.getUuid(), selectedSkinIndex));
+        }
+        npc.refreshSkinModel();
+        this.close();
     }
 }

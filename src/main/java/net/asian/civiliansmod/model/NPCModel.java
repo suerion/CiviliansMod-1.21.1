@@ -145,6 +145,18 @@ public class NPCModel extends BipedEntityModel<NPCRenderState> {
             this.leftPants.visible = false;
             this.rightPants.visible = false;
             }
+        float swing = playerEntityRenderState.handSwingProgress;
+        if (swing > 0.0F) {
+            //what arm should swing?
+            ModelPart mainArm = playerEntityRenderState.preferredArm == net.minecraft.util.Arm.LEFT ? this.leftArm : this.rightArm;
+
+            float swingSin  = net.minecraft.util.math.MathHelper.sin(swing * (float)Math.PI);
+            float swingSin2 = net.minecraft.util.math.MathHelper.sin((1.0F - (1.0F - swing) * (1.0F - swing)) * (float)Math.PI);
+
+            // apply vanilla-like attack motion
+            mainArm.pitch -= swingSin2 * 1.2F;
+            mainArm.yaw   += swingSin * 0.4F;
+        }
             updateVisibility(playerEntityRenderState);
     }
 

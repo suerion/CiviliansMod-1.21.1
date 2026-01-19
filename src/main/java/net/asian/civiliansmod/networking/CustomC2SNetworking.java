@@ -1,12 +1,8 @@
 package net.asian.civiliansmod.networking;
 
-import net.asian.civiliansmod.networking.payload.npc.NpcSpawnPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.*;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeBaseSkinPayload;
 import net.asian.civiliansmod.networking.payload.npc.skin.ChangeSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.ClientNpcSkinPayload;
-import net.asian.civiliansmod.networking.payload.npc.skin.SyncSkinPayload;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 
 public class CustomC2SNetworking {
@@ -20,8 +16,14 @@ public class CustomC2SNetworking {
         ServerPlayNetworking.registerGlobalReceiver(PlayerLanguagePayload.ID, PlayerLanguagePayload::handlePacket);
         ServerPlayNetworking.registerGlobalReceiver(ClientDialogueSyncPayload.ID, ClientDialogueSyncPayload::handlePacket);
         ServerPlayNetworking.registerGlobalReceiver(ChangeBaseSkinPayload.ID, ChangeBaseSkinPayload::handlePacket);
+        // NEW
+        ServerPlayNetworking.registerGlobalReceiver(MassRemoveDialoguePayload.ID, (
+                payload, context) -> context.server().execute(() -> MassRemoveDialoguePayload.handlePacket(payload, context)
+                )
+        );
     }
     public static void intialize() {
+        // This method is called to ensure the static block executes.
     }
 
 }

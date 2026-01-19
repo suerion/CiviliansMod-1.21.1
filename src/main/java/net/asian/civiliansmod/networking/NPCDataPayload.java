@@ -14,7 +14,16 @@ import net.minecraft.util.Uuids;
 
 import java.util.UUID;
 
-public record NPCDataPayload(UUID npcUuid, String name, boolean paused, boolean following, boolean battleBuddy, float wanderRadius) implements CustomPayload {
+public record NPCDataPayload(
+        UUID npcUuid,
+        String name,
+        boolean paused,
+        boolean following,
+        boolean battleBuddy,
+        float wanderRadius,
+        boolean dialogueOrdered,
+        String tradePreset
+) implements CustomPayload {
     public static final CustomPayload.Id<NPCDataPayload> ID = new CustomPayload.Id<>(Identifier.of("civiliansmod", "npc_data"));
 
     public static final PacketCodec<RegistryByteBuf, NPCDataPayload> CODEC = PacketCodec.tuple(
@@ -24,6 +33,8 @@ public record NPCDataPayload(UUID npcUuid, String name, boolean paused, boolean 
             PacketCodecs.BOOLEAN, NPCDataPayload::following,
             PacketCodecs.BOOLEAN, NPCDataPayload::battleBuddy,
             PacketCodecs.FLOAT, NPCDataPayload::wanderRadius,
+            PacketCodecs.BOOLEAN, NPCDataPayload::dialogueOrdered,
+            PacketCodecs.STRING, NPCDataPayload::tradePreset,
             NPCDataPayload::new
     );
 
@@ -34,16 +45,21 @@ public record NPCDataPayload(UUID npcUuid, String name, boolean paused, boolean 
 
     public static void handlePacket(NPCDataPayload payload, ServerPlayNetworking.Context context) {
         ServerPlayerEntity player = context.player();
-        Entity entity = player.getWorld().getEntity(payload.npcUuid);
+        // Use the UUID to find the entity, as it's more reliable across dimensions.
+        Entity entity = player.getServer().getOverworld().getEntity(payload.npcUuid());
+        
         if (entity instanceof NPCEntity npc) {
-            npc.setCustomName(Text.literal(payload.name));
-            npc.setPaused(payload.paused);
-            npc.setFollowing(payload.following);
-            npc.setBattleBuddy(payload.battleBuddy);
-            if (payload.battleBuddy) {
-                npc.setOwner(player);
-            }
-            npc.setWanderRadius(payload.wanderRadius);
+            // Run on the main server thread to prevent concurrency issues
+            player.getServer().execute(() -> {
+                npc.setCustomName(Text.literal(payload.name));
+                // Set Battle Buddy, Follower and assign owner if it's being turned on
+                npc.setFollowing(payload.following, player);
+                npc.setBattleBuddy(payload.battleBuddy, player);
+                npc.setPaused(payload.paused);
+                npc.setWanderRadius(payload.wanderRadius);
+                npc.setDialogueOrdered(payload.dialogueOrdered);
+                npc.setTradePreset(payload.tradePreset);
+            });
         }
     }
 }

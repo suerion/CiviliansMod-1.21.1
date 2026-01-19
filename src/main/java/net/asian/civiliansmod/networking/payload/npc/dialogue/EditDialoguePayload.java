@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record EditDialoguePayload(UUID npcUuid, String language, String chatReason, int index,
-                                  String newDialogue, boolean customMode) implements CustomPayload {
+                                  String newDialogue) implements CustomPayload {
     public static final CustomPayload.Id<EditDialoguePayload> ID = new CustomPayload.Id<>(Identifier.of(CiviliansMod.MOD_ID, "npc_dialogue_edit"));
 
     public static final PacketCodec<RegistryByteBuf, EditDialoguePayload> CODEC = PacketCodec.tuple(
@@ -27,7 +27,6 @@ public record EditDialoguePayload(UUID npcUuid, String language, String chatReas
             PacketCodecs.STRING, EditDialoguePayload::chatReason,
             PacketCodecs.INTEGER, EditDialoguePayload::index,
             PacketCodecs.STRING, EditDialoguePayload::newDialogue,
-            PacketCodecs.BOOLEAN, EditDialoguePayload::customMode,
             EditDialoguePayload::new
     );
 
@@ -42,15 +41,6 @@ public record EditDialoguePayload(UUID npcUuid, String language, String chatReas
 
         String lang = this.language;
         NpcChat.ChatReason reason = NpcChat.ChatReason.valueOf(chatReason);
-        if (customMode) {
-            List<String> list = entity.getChatManager()
-                    .getCustomDialogues()
-                    .computeIfAbsent(reason, r -> new ArrayList<>());
-            while (list.size() <= index) {
-                list.add("...");
-            }
-            list.set(index, newDialogue);
-        } else {
             entity.getChatManager()
                     .getDialogues()
                     .computeIfAbsent(lang, i -> new HashMap<>())
@@ -65,7 +55,7 @@ public record EditDialoguePayload(UUID npcUuid, String language, String chatReas
                 list.add("...");
             }
             list.set(index, newDialogue);
-        }
+
 
         entity.getChatManager().markDialoguesDirty(context.player().getUuid());
     }

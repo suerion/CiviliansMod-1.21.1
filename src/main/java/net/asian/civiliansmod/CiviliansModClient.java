@@ -1,9 +1,11 @@
 package net.asian.civiliansmod;
 
 import net.asian.civiliansmod.chat.NpcChat;
+import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.networking.CustomS2CNetworking;
 import net.asian.civiliansmod.networking.PlayerLanguagePayload;
 import net.asian.civiliansmod.util.FolderUtil;
+import net.asian.civiliansmod.util.ModCompat;
 import net.asian.civiliansmod.custom_skins.SkinFolderManager;
 import net.asian.civiliansmod.entity.ModEntities;
 import net.asian.civiliansmod.util.NPCUtil;
@@ -14,6 +16,7 @@ import net.fabricmc.fabric.api.client.rendering.v1.EntityRendererRegistry;
 import net.asian.civiliansmod.renderer.NPCRenderer;
 import net.asian.civiliansmod.model.NPCModel;
 import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.model.Dilation;
 import net.minecraft.client.model.TexturedModelData;
 import net.minecraft.client.render.entity.model.EntityModelLayer;
@@ -44,18 +47,58 @@ public class CiviliansModClient implements ClientModInitializer {
         //we gather the textures when a client joins a server.
         ClientPlayConnectionEvents.INIT.register((phase, listener) -> {
             FolderUtil.init();
-
             NPCUtil.refreshTextures();
+            if (MinecraftClient.getInstance() != null && MinecraftClient.getInstance().world != null) {
+                CiviliansMod.LOGGER.info(
+                        "[ModCompat] replay={} world={}",
+                        ModCompat.isInReplay(),
+                        MinecraftClient.getInstance().world != null
+                                ? MinecraftClient.getInstance().world.getClass().getSimpleName()
+                                : "null"
+                );
+                var world = MinecraftClient.getInstance().world;
+
+                for (var entity : world.getEntities()) {
+                    if (entity instanceof NPCEntity npc) {
+                        var sm = npc.getSkinManager();
+
+                        if (ModCompat.isInReplay()) {
+                            if (sm.getSkinByteArray() != null) {
+                                sm.uploadDynamicTexture();
+                                sm.setDefaultSkin(false);
+                                npc.refreshSkinModel();
+
+                                CiviliansMod.LOGGER.info(
+                                        "[REPLAY-NBT] Applied custom skin uuid={} bytes={}",
+                                        npc.getUuid(),
+                                        sm.getSkinByteArray().length
+                                );
+                                continue;
+                            }
+                        }
+
+                        if (sm.getSkinIdentifier() == null
+                                && sm.getBaseVariant() >= 0
+                                && !NPCUtil.getSkins().isEmpty()) {
+
+                            sm.setIdSkin(NPCUtil.getNPCTexture(sm.getBaseVariant()));
+                        }
+                    }
+                }
+            }
             NpcChat.registerChat();
         });
 
         CustomS2CNetworking.intialize();
 
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            // Flashback (and similar mods) can change replay status at runtime.
+            ModCompat.resetRuntimeCaches();
             String lang = client.getLanguageManager().getLanguage();
             PacketByteBuf buf = PacketByteBufs.create();
             buf.writeString(lang);
             sender.sendPacket(new PlayerLanguagePayload(client.player.getUuid(), lang));
+            ModCompat.onClientJoinComplete();
         });
         CiviliansMod.LOGGER.info("[CiviliansMod] Model layers registered!");
     }

@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public record RemoveDialoguePayload(UUID npcUuid, String language, String reason, String dialogue, boolean customMode) implements CustomPayload {
+public record RemoveDialoguePayload(UUID npcUuid, String language, String reason, String dialogue) implements CustomPayload {
     public static final CustomPayload.Id<RemoveDialoguePayload> ID = new CustomPayload.Id<>(Identifier.of(CiviliansMod.MOD_ID, "remove_dialogue"));
 
     public static final PacketCodec<RegistryByteBuf, RemoveDialoguePayload> CODEC = PacketCodec.tuple(
@@ -25,7 +25,6 @@ public record RemoveDialoguePayload(UUID npcUuid, String language, String reason
             PacketCodecs.STRING, RemoveDialoguePayload::language,
             PacketCodecs.STRING, RemoveDialoguePayload::reason,
             PacketCodecs.STRING, RemoveDialoguePayload::dialogue,
-            PacketCodecs.BOOLEAN, RemoveDialoguePayload::customMode,
             RemoveDialoguePayload::new
     );
 
@@ -51,19 +50,10 @@ public record RemoveDialoguePayload(UUID npcUuid, String language, String reason
             return;
         }
 
-            if (payload.customMode) {
-                // Remove from custom dialogues
-                List<String> dialogues = npc.getChatManager()
-                        .getCustomDialogues()
-                        .computeIfAbsent(chatReason, (o) -> new ArrayList<>());
-                dialogues.remove(payload.dialogue);
-            } else {
-                // Remove from language dialogues
                 List<String> dialogues = npc.getChatManager()
                         .getTranslatedDialogues(payload.language)
                         .computeIfAbsent(chatReason, (o) -> new ArrayList<>());
                 dialogues.remove(payload.dialogue);
-            }
 
             npc.getChatManager().markDialoguesDirty(player.getUuid());
         }

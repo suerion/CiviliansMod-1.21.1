@@ -4,12 +4,10 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.api.EnvType;
 import net.fabricmc.api.Environment;
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.ButtonTextures;
 import net.minecraft.client.gui.widget.ButtonWidget;
-import net.minecraft.client.render.RenderLayer;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.math.MathHelper;
@@ -17,12 +15,14 @@ import net.minecraft.util.math.MathHelper;
 @SuppressWarnings("unused")
 @Environment(EnvType.CLIENT)
 public class TextButtonWidget extends ButtonWidget {
-    int textColor = 0xFFFFFF;
-    int buttonColor = 0xFFFFFF;
 
     private static final ButtonTextures TEXTURES = new ButtonTextures(
-            Identifier.of("widget/button"), Identifier.of("widget/button_disabled"), Identifier.of("widget/button_highlighted")
+            Identifier.ofVanilla("widget/button"),
+            Identifier.ofVanilla("widget/button_disabled"),
+            Identifier.ofVanilla("widget/button_highlighted")
     );
+
+    private int textColor = 0xFFFFFF;
 
     public TextButtonWidget(int x, int y, int width, int height, Text text, PressAction onPress) {
         super(x, y, width, height, text, onPress, DEFAULT_NARRATION_SUPPLIER);
@@ -36,20 +36,23 @@ public class TextButtonWidget extends ButtonWidget {
     public TextButtonWidget(int x, int y, int width, int height, Text text, PressAction onPress, int textColor, int buttonColor) {
         super(x, y, width, height, text, onPress, DEFAULT_NARRATION_SUPPLIER);
         this.textColor = textColor;
-        this.buttonColor = buttonColor;
-    }
-
-
-    public void setColor(int color) {
-        this.textColor = color;
     }
 
     @Override
     protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-        MinecraftClient client = MinecraftClient.getInstance();
-        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, TEXTURES.get(this.active, this.isSelected()), this.getX(), this.getY(), this.getWidth(), this.getHeight());
-        int i = this.active ? 16777215 : 10526880;
-        this.drawMessage(context, client.textRenderer, i | MathHelper.ceil(this.alpha * 255.0F) << 24);
-    }
 
+        Identifier button = TEXTURES.get(this.active, this.isHovered());
+        context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, button, this.getX(), this.getY(), this.getWidth(), this.getHeight());
+
+        // color
+        int baseColor = this.active ? this.textColor : 0xA0A0A0;
+        int argbcolor = baseColor | (MathHelper.ceil(this.alpha * 255.0F) << 24);
+
+        // center
+        var renderer = MinecraftClient.getInstance().textRenderer;
+        int textX = getX() + (width - renderer.getWidth(getMessage())) / 2;
+        int textY = getY() + (height - 8) / 2;
+
+        context.drawText(renderer, getMessage(), textX, textY, argbcolor, false);
+    }
 }

@@ -10,6 +10,7 @@ public class DefaultChat {
         dialogues.put("en_us", getEnglish());
         dialogues.put("fr_fr", getFrench());
         dialogues.put("fr_ca", getCanadianFrench());
+        dialogues.put("de_de", getGerman());
 
         return dialogues;
     }
@@ -174,5 +175,63 @@ public class DefaultChat {
         quebec.put(NpcChat.ChatReason.HURT, quebecHurt);
         quebec.put(NpcChat.ChatReason.INTERACT, quebecInteraction);
         return quebec;
+    }
+
+    private static Map<NpcChat.ChatReason, List<String>> getGerman(){
+        Map<NpcChat.ChatReason, List<String>> german = new LinkedHashMap<>();
+        List<String> germanHurt = new ArrayList<>(List.of(
+                "Autsch! Das hat wehgetan!",
+                "Hey, pass doch auf!",
+                "Warum würdest du das tun?!",
+                "Hör auf, mich zu schlagen!",
+                "Was stimmt nicht mit dir?",
+                "Bitte, tu mir nicht weh!",
+                "Was habe ich getan, um das zu verdienen?!",
+                "Kämpf fair mit mir!",
+                "Pass auf, Kumpel, du weißt nicht, mit wem du dich anlegst.",
+                "Au!",
+                "GEH WEG VON MIR!",
+                "Warum muss diese Welt mich mit so viel Pech bestrafen?!",
+                "Hey... bitte hör auf, ich hatte schon einen langen Tag.",
+                "WENN ES DOCH NUR EINEN HELDEN GÄBE, DER MICH RETTEN KÖNNTE!",
+                "Lass deine Wut an den Schafen aus, nicht an mir!",
+                "Es tut mir so leid, es tut mir so leid!",
+                "Die Prophezeiung sagte voraus, dass du das tun würdest.",
+                "Freunde sollten sich nicht gegenseitig verletzen!",
+                "@$%#&!!"
+        ));
+        List<String> germanInteraction = new ArrayList<>(List.of(
+                "Hallo, Reisender! Wie kann ich dir helfen?",
+                "Ich hoffe, du genießt den Tag.",
+                "Bleib vorsichtig – die Welt ist gefährlich.",
+                "Hier in der Nähe soll ein Schatz versteckt sein... hab ich zumindest gehört.",
+                "Vergiss nicht, dich aus Ärger fernzuhalten!",
+                "Ich bin hier, um dir zu helfen, Reisender.",
+                "Was kann ich für dich tun?",
+                "Ich bin so hungrig... Hast du etwas Essen übrig?",
+                "Ich sollte meine Augen überprüfen lassen, alles sieht so pixelig aus!",
+                "Manchmal fühlt es sich an, als würde ich träumen. Ich weiß nicht, was ich tun soll.",
+                "Hey! Kann ich dir bei etwas helfen, Reisender?",
+                "Manche sagen, die Welt sei flach... kannst du das glauben?",
+                "Ich habe gerade keine Zeit zum Reden, tut mir leid!",
+                "Wow, du siehst total cool aus. Vielleicht kopiere ich deinen Look!",
+                "Ich muss diesen versteckten Schatz finden, Gerüchten zufolge ist er irgendwo hier.",
+                "Ich liebe diesen Ort, es macht richtig Spaß, hier zu sein!",
+                "Ich hoffe, jemand hat diesen furchterregenden Drachen erledigt... ich bin sicher, er ist nicht mehr hier.",
+                "Willst du mit mir jagen gehen?",
+                "Hast du meinen Freund gesehen? Er macht immer Ärger.",
+                "Hoffentlich wird es hier nicht zu voll...",
+                "Ich bin überrascht, dass hier nicht mehr Leute sind...",
+                "Ich freue mich sehr, dich zu sehen, Reisender!",
+                "Wenn die Vögel singen, kann ich nicht anders, als mitzusingen.",
+                "Ich fühle diese unbändige Wut in meinem Körper! MUSS... MUSS... AUFHÖREN!",
+                "Uup! Entschuldige, lass mich kurz vorbei.",
+                "Dunkelheit verschlingt mich...",
+                "ICH BIN SO FROH, DICH WIEDERZUSEHEN! ICH LIEBE DICH!",
+                "Hey, du machst das großartig."
+        ));
+        german.put(NpcChat.ChatReason.HURT, germanHurt);
+        german.put(NpcChat.ChatReason.INTERACT, germanInteraction);
+        return german;
     }
 }

@@ -3,30 +3,21 @@ package net.asian.civiliansmod.gui;
 import net.asian.civiliansmod.entity.NPCEntity;
 import net.asian.civiliansmod.util.NPCUtil;
 import net.asian.civiliansmod.util.SkinIdentifier;
-import net.minecraft.util.Identifier;
-
 import java.util.List;
 import java.util.stream.IntStream;
 
-
-/**
- * Class to display slim npc models
- */
 public class SlimNPCScreen extends AbstractNPCScreen {
     public SlimNPCScreen(NPCEntity npc) {
-        super(npc);
+        super(npc, Tab.SKINS); // Start on the Skins tab
     }
 
-    public SlimNPCScreen(NPCEntity npc, int selected, int originalVariant) {
-        super(npc, selected, originalVariant);
-    }
-
-    public SlimNPCScreen(NPCEntity npc, int selected, int defaultSkin, int selectedVariantIndex, boolean follow, boolean stay) {
-        super(npc, selected, defaultSkin, selectedVariantIndex, follow, stay);
+    public SlimNPCScreen(NPCEntity npc, Tab startingTab) {
+        super(npc, startingTab);
     }
 
     @Override
     protected List<Integer> getSkinsToRender() {
+        // Return only slim skins
         return IntStream.range(0, NPCUtil.getSkins().size())
                 .filter(i -> {
                     SkinIdentifier skin = NPCUtil.getSkins().get(i);
