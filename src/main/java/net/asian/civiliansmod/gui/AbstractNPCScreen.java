@@ -3,8 +3,8 @@ package net.asian.civiliansmod.gui;
 import net.asian.civiliansmod.CiviliansMod;
 import net.asian.civiliansmod.chat.NpcChat;
 import net.asian.civiliansmod.entity.NPCEntity;
-import net.asian.civiliansmod.gui.widgets.CheckboxWidget;
 import net.asian.civiliansmod.gui.widgets.DialogueListWidget;
+import net.asian.civiliansmod.gui.widgets.OptionWidget;
 import net.asian.civiliansmod.gui.widgets.TextButtonWidget;
 import net.asian.civiliansmod.networking.NPCDataPayload;
 import net.asian.civiliansmod.networking.payload.npc.dialogue.MassRemoveDialoguePayload;
@@ -17,7 +17,6 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gl.RenderPipelines;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Drawable;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.*;
 import net.minecraft.client.render.entity.EntityRenderDispatcher;
@@ -70,12 +69,16 @@ public abstract class AbstractNPCScreen extends Screen {
     private double skinScrollY = 0;
     private double maxSkinScrollY = 0;
 
-    //constante for buttons
+    //constants for buttons
     private static final int BTN_SKIN_X = GRID_X + GRID_W;
     private static final int BTN_SKIN_Y = GRID_Y;
     private static final int BTN_SKIN_W = 40;
     private static final int BTN_SKIN_H = 13;
     private static final int BTN_SKIN_SPACING = 6;
+
+    private static final int AI_BTN_W = 70;
+    private static final int AI_BTN_H = 13;
+    private static final int AI_BTN_SPACING = 6;
 
     private static final int BTN_CUSTOM_WIDTH = 52;
     private static final int BTN_CUSTOM_Y_OFFSET = (BTN_SKIN_H + BTN_SKIN_SPACING) * 2;
@@ -180,13 +183,16 @@ public abstract class AbstractNPCScreen extends Screen {
         SkinIdentifier id = npc.getSkinManager().getIdSkin();
         this.originalVariantIndex = NPCUtil.getSkins().indexOf(id);
         this.selectedSkinIndex = this.originalVariantIndex;
-        CiviliansMod.LOGGER.info(
-                "[GUI-OPEN] npc={} originalVariant={} selectedVariant={} skinId={}",
-                npc.getUuid(),
-                this.originalVariantIndex,
-                this.selectedSkinIndex,
-                id
-        );
+        if (CiviliansMod.DEBUG_GUI) {
+            CiviliansMod.LOGGER.info(
+                    "[GUI-OPEN] npc={} originalVariant={} selectedVariant={} skinId={}",
+                    npc.getUuid(),
+                    this.originalVariantIndex,
+                    this.selectedSkinIndex,
+                    id
+            );
+        }
+
         previewNpcCache.clear();
         super.init();
 
@@ -216,10 +222,12 @@ public abstract class AbstractNPCScreen extends Screen {
         this.addSelectableChild(this.nameInputField);
 
         //buttons bottom
-        /*
+
+        /* old buttons
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Save & Close"), b -> this.saveAndClose()).dimensions(containerX + containerWidth - 88, containerY + containerHeight - 28, 80, 20).build());
         this.addDrawableChild(ButtonWidget.builder(Text.literal("Cancel"), b -> this.close()).dimensions(containerX + 8, containerY + containerHeight - 28, 80, 20).build());
-*/
+        */
+
         this.addDrawableChild(new TextButtonWidget(containerX + containerWidth - 88, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Save & Close"), b -> this.saveAndClose()));
         this.addDrawableChild(new TextButtonWidget(containerX + 8, containerY + containerHeight - 25, 80, CUSTOMBUTTON_HEIGHT, Text.literal("Cancel"), b -> this.close()));
 
@@ -369,32 +377,51 @@ public abstract class AbstractNPCScreen extends Screen {
                 this.addDrawableChild(new TextButtonWidget(topX + (BTN_SKIN_W) * 2, topY, BTN_CUSTOM_WIDTH, BTN_SKIN_H, Text.literal("Custom"), btn -> this.client.setScreen(new CustomNPCScreen(this.npc)), customColor));
             }
             case AI -> {
-                this.wanderRadiusState = npc.getWanderRadius();
-                int x = containerX + BTN_SKIN_X;
-                int y = contentY;
+                List<Integer> list = this.getSkinsToRender();
+                this.skinsToRender = (list != null) ? list : Collections.emptyList();
 
-                final CheckboxWidget[] stayCheckbox = new CheckboxWidget[1];
-                final CheckboxWidget[] followCheckbox = new CheckboxWidget[1];
-                final CheckboxWidget[] battleBuddyCheckbox = new CheckboxWidget[1];
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                // active colors
+                boolean isWide   = this instanceof DefaultNPCScreen;
+                boolean isSlim   = this instanceof SlimNPCScreen;
+                boolean isCustom = this instanceof CustomNPCScreen;
+
+                int wideColor   = isWide   ? 0x00FF00 : 0xFFFFFF;
+                int slimColor   = isSlim   ? 0x00FF00 : 0xFFFFFF;
+                int customColor = isCustom ? 0x00FF00 : 0xFFFFFF;
+
+                // skin switch buttons ai context
+                this.addDrawableChild(new TextButtonWidget(topX, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Wide"), btn -> this.client.setScreen(new DefaultNPCScreen(this.npc, Tab.AI)), wideColor));
+                this.addDrawableChild(new TextButtonWidget(topX + BTN_SKIN_W, topY, BTN_SKIN_W, BTN_SKIN_H, Text.literal("Slim"), btn -> this.client.setScreen(new SlimNPCScreen(this.npc, Tab.AI)), slimColor));
+                this.addDrawableChild(new TextButtonWidget(topX + (BTN_SKIN_W) * 2, topY, BTN_CUSTOM_WIDTH, BTN_SKIN_H, Text.literal("Custom"), btn -> this.client.setScreen(new CustomNPCScreen(this.npc, Tab.AI)), customColor));
+
+                this.wanderRadiusState = npc.getWanderRadius();
+                int x = containerX + BTN_SKIN_X + 6;
+                int y = contentY + 2;
+
+                final OptionWidget[] stayOption = new OptionWidget[1];
+                final OptionWidget[] followOption = new OptionWidget[1];
+                final OptionWidget[] battleBuddyOption = new OptionWidget[1];
 
                 //FOLLOW
-                followCheckbox[0] = new CheckboxWidget(x, y +25, 100, 20, Text.literal("Follow"), this.followState, (checked) -> {
+                followOption[0] = new OptionWidget(x, y + AI_BTN_H + AI_BTN_SPACING, AI_BTN_W, AI_BTN_H, Text.literal("Follow"), this.followState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    followOption[0].setShowCheckbox(true);
                     if (this.followState != checked) {
                         this.followState = checked;
                     }
                     if (checked) {
                         //follow on, stay off
                         this.stayState = false;
-                        stayCheckbox[0].setChecked(false);
+                        stayOption[0].setChecked(false);
                         //now the battlebuddycheckbox is activated
-                        battleBuddyCheckbox[0].active = true;
                     } else {
                         //follow off, battlebuddy should not activated
                         if (this.battleBuddyState) {
                             this.battleBuddyState = false;
-                            battleBuddyCheckbox[0].setChecked(false);
+                            battleBuddyOption[0].setChecked(false);
                         }
-                        battleBuddyCheckbox[0].active = false;
                     }
                     updateWanderAnchorCheck();
                     //if stay and follow disable, wander slider should activated
@@ -403,36 +430,33 @@ public abstract class AbstractNPCScreen extends Screen {
                 );
 
                 //STAY
-                stayCheckbox[0] = new CheckboxWidget(x, y, 100, 20, Text.literal("Stay"), this.stayState, (checked) -> {
+                stayOption[0] = new OptionWidget(x, y, AI_BTN_W, AI_BTN_H, Text.literal("Stay"), this.stayState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    stayOption[0].setShowCheckbox(true);
                     if (this.stayState != checked) {
                         this.stayState = checked;
                     }
                     if (checked) {
                         //stay on, follow off
                         this.followState = false;
-                        followCheckbox[0].setChecked(false);
+                        followOption[0].setChecked(false);
 
                         //battlebuddy should not activated
                         if (this.battleBuddyState) {
                             this.battleBuddyState = false;
-                            battleBuddyCheckbox[0].setChecked(false);
+                            battleBuddyOption[0].setChecked(false);
                         }
-                        battleBuddyCheckbox[0].active = false;
                     } else {
                         // Stay off , if follow activated, battlebuddy could activated
-                        battleBuddyCheckbox[0].active = this.followState;
                     }
                     updateWanderAnchorCheck();
                     this.clearAndInit();
                 });
 
-                followCheckbox[0].active = !this.stayState;
-                stayCheckbox[0].active = !this.followState;
+                this.addDrawableChild(stayOption[0]);
+                this.addDrawableChild(followOption[0]);
 
-                this.addDrawableChild(stayCheckbox[0]);
-                this.addDrawableChild(followCheckbox[0]);
-
-                battleBuddyCheckbox[0] =new CheckboxWidget(x, y + 50, 100, 20, Text.literal("Battle Buddy"), this.battleBuddyState, (checked) -> {
+                battleBuddyOption[0] = new OptionWidget(x, y + (AI_BTN_H + AI_BTN_SPACING) * 2, AI_BTN_W , AI_BTN_H, Text.literal("Battle Buddy"), this.battleBuddyState, OptionWidget.LayoutMode.CHECKBOX_LEFT_SCROLL_TEXT, (checked) -> {
+                    battleBuddyOption[0].setShowCheckbox(true);
                     this.battleBuddyState = checked;
 
                     if (checked) {
@@ -440,28 +464,29 @@ public abstract class AbstractNPCScreen extends Screen {
                         this.followState = true;
                         this.stayState = false;
 
-                        followCheckbox[0].setChecked(true);
-                        stayCheckbox[0].setChecked(false);
+                        followOption[0].setChecked(true);
+                        stayOption[0].setChecked(false);
 
                         // if follow, stay are not activated
-                        stayCheckbox[0].active = false;
                     } else {
                         // battlebuddy off
                         // follow should be follow
-                        stayCheckbox[0].active = !this.followState;
                     }
                     updateWanderAnchorCheck();
                     this.clearAndInit();
                 });
 
                 //battle buddy only clickable if floow activated
-                battleBuddyCheckbox[0].active = this.followState;
-                this.addDrawableChild(battleBuddyCheckbox[0]);
+                this.addDrawableChild(battleBuddyOption[0]);
 
                 //wanderslider only if no stay, no follow, no battlebuddy
                 if (!this.stayState && !this.followState && !this.battleBuddyState) {
                     double sliderValue = MathHelper.clamp((wanderRadiusState - 4f) / 60f, 0.0, 1.0);
-                    SliderWidget wanderSlider =  new SliderWidget(x - 5, y + 80,contentWidth, 20, Text.literal("Wander: " + (int) wanderRadiusState),sliderValue) {
+
+                    int sliderY = y + (AI_BTN_H + AI_BTN_SPACING) * 3;
+
+                    SliderWidget wanderSlider =  new SliderWidget(x, sliderY,AI_BTN_W, AI_BTN_H, Text.literal("Wander: " + (int) wanderRadiusState), sliderValue) {
+
                         @Override
                         protected void updateMessage() {
                             //only current mapped value
@@ -479,31 +504,37 @@ public abstract class AbstractNPCScreen extends Screen {
                     };
                     this.addDrawableChild(wanderSlider);
                 }
+                stayOption[0].active = !this.followState;
+                followOption[0].active = !this.stayState;
+                battleBuddyOption[0].active = this.followState;
             }
             case DIALOGUES -> {
                 this.dialogueList = new DialogueListWidget(npc, DIALOG_X, DIALOG_Y, DIALOG_W, DIALOG_H);
 
-                int bx = containerX + 75;
-                int by = containerY + 155;
+                int topX = containerX + GRID_X - 12;
+                int topY = containerY + GRID_Y - BTN_SKIN_H - 3;
+
+                int bw = 85;
+                int spacing = 2;
 
                 //toogle selection mode
                 this.addDrawableChild(ButtonWidget.builder(Text.literal(selectionMode ? "Exit Select" : "Select Mode"),btn -> {
                     toggleSelection();
                     btn.setMessage(Text.literal(selectionMode ? "Exit Select" : "Select Mode"));
-                }).dimensions(bx, by, 90, 20).build());
+                }).dimensions(topX, topY, bw, BTN_SKIN_H).build());
 
                 //delete selected
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete Selected"),btn -> {
                     deleteSelected();
                     // Refresh list after deletion
                     if (dialogueList != null) dialogueList.reloadFromNPC();
-                }).dimensions(bx + 95, by, 110, 20).build());
+                }).dimensions(topX + bw + spacing, topY, bw, BTN_SKIN_H).build());
 
                 //delete all
                 this.addDrawableChild(ButtonWidget.builder(Text.literal("Delete All"), btn -> {
                     deleteAll();
                     if (dialogueList != null) dialogueList.reloadFromNPC();
-                }).dimensions(bx + 210, by, 80, 20).build());
+                }).dimensions(topX + (bw + spacing) * 2, topY, bw, BTN_SKIN_H).build());
             }
         }
     }
@@ -540,9 +571,9 @@ public abstract class AbstractNPCScreen extends Screen {
 
         //tab overlay
         switch (this.currentTab) {
-            case SKINS -> this.renderSkinsTab(context, mouseX, mouseY);
+            case SKINS, AI -> this.renderSkinsTab(context, mouseX, mouseY);
             case DIALOGUES -> {}
-            default -> {} // Other tabs do not need special rendering
+            default -> {}
         }
     }
 
@@ -648,7 +679,7 @@ public abstract class AbstractNPCScreen extends Screen {
     // mouseclick
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (this.currentTab == Tab.SKINS) {
+        if (this.currentTab == Tab.SKINS || this.currentTab == Tab.AI) {
             int contentX = containerX + GRID_X;
             int contentY = containerY + GRID_Y;
 
@@ -687,7 +718,7 @@ public abstract class AbstractNPCScreen extends Screen {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
         // Skin scrolling
-        if (this.currentTab == Tab.SKINS) {
+        if (this.currentTab == Tab.SKINS || this.currentTab == Tab.AI) {
             int totalRows = (int) Math.ceil((double) skinsToRender.size() / SKIN_COLUMNS);
             int contentHeight = totalRows * (SKIN_CELL_H + SKIN_CELL_SPACING);
 

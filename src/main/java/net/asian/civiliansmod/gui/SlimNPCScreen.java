@@ -11,6 +11,10 @@ public class SlimNPCScreen extends AbstractNPCScreen {
         super(npc, Tab.SKINS); // Start on the Skins tab
     }
 
+    public SlimNPCScreen(NPCEntity npc, Tab startingTab) {
+        super(npc, startingTab);
+    }
+
     @Override
     protected List<Integer> getSkinsToRender() {
         // Return only slim skins

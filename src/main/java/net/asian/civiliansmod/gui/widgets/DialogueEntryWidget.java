@@ -29,7 +29,7 @@ public class DialogueEntryWidget extends ClickableWidget {
     private final int index;
     private final Runnable refreshScreen;
 
-    private final CheckboxWidget checkbox;
+    private final OptionWidget option;
     private boolean selectionMode = false;
 
     public DialogueEntryWidget(NPCEntity npc, int x, int y, int width, int height, NpcChat.ChatReason category, String dialogue, int index, Runnable refreshScreen) {
@@ -40,7 +40,7 @@ public class DialogueEntryWidget extends ClickableWidget {
         this.index = index;
         this.refreshScreen = refreshScreen;
 
-        checkbox = new CheckboxWidget(x + 2, y + 2, 10, 10, Text.empty(), false, checked -> {});
+        option = new OptionWidget(x, y, width, height - 4, Text.literal(dialogue), false, OptionWidget.LayoutMode.CHECKBOX_RIGHT_CLIP_TEXT, checked -> {});
     }
 
     private void openDeleteConfirm() {
@@ -67,7 +67,7 @@ public class DialogueEntryWidget extends ClickableWidget {
     }
 
     public boolean isSelected() {
-        return checkbox.isChecked();
+        return option.isChecked();
     }
 
     public String getDialogue() {
@@ -86,36 +86,38 @@ public class DialogueEntryWidget extends ClickableWidget {
 
         context.drawGuiTexture(RenderPipelines.GUI_TEXTURED, Identifier.ofVanilla("widget/button"), getX(), getY(), getWidth(), getHeight(), btcolor);
 
-        var renderer = MinecraftClient.getInstance().textRenderer;
-
-        int controlSize = selectionMode ? 12 : DELETE_SIZE;
-        int rightPadding = controlSize + 4;
-
-        int availableWidth = getWidth() - rightPadding - 6;
-
-        if (availableWidth < 20)
-            availableWidth = 20;
-
-        String trimmed = renderer.trimToWidth(dialogue, availableWidth - renderer.getWidth("..."));
-
-        if (renderer.getWidth(dialogue) > availableWidth)
-            trimmed += "...";
-
-        int textY = getY() + (getHeight() - renderer.fontHeight) / 2;
-
-        context.drawText(renderer, trimmed, getX() + 4, textY, 0xFFFFFFFF, false);
+        option.setX(getX());
+        option.setY(getY());
+        option.setWidth(getWidth());
+        option.setHeight(getHeight());
+        option.setDrawBackground(false);
 
         if (selectionMode) {
-
-            int checkboxSize = 12;
-            int checkboxX = getX() + getWidth() - checkboxSize - 4;
-            int checkboxY = getY() + (getHeight() - checkboxSize) / 2;
-
-            checkbox.setX(checkboxX);
-            checkbox.setY(checkboxY);
-            checkbox.renderWidget(context, mouseX, mouseY, delta);
+            option.setShowCheckbox(true);
+            option.renderWidget(context, mouseX, mouseY, delta);
         } else {
+            option.setShowCheckbox(false);
 
+            var renderer = MinecraftClient.getInstance().textRenderer;
+
+            int rightPadding = DELETE_SIZE + 6;
+            int availableWidth = getWidth() - rightPadding - 6;
+
+            String trimmed = dialogue;
+
+            if (renderer.getWidth(dialogue) > availableWidth) {
+                trimmed = renderer.trimToWidth(dialogue, availableWidth);
+                while (renderer.getWidth(trimmed + "...") > availableWidth && !trimmed.isEmpty()) {
+                    trimmed = trimmed.substring(0, trimmed.length() - 1);
+                }
+                trimmed += "...";
+            }
+
+            int textY = getY() + (getHeight() - renderer.fontHeight) / 2;
+            context.drawText(renderer, trimmed, getX() + 4, textY, 0xFFFFFFFF, false);
+        }
+
+        if (!selectionMode) {
             int deleteX = getX() + getWidth() - DELETE_SIZE - 2;
             int deleteY = getY() + (getHeight() - DELETE_SIZE) / 2;
 
@@ -125,12 +127,7 @@ public class DialogueEntryWidget extends ClickableWidget {
 
             Identifier icon = hoveredDelete ? DELETE_BT_HOVER : DELETE_BT;
 
-            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon,
-                    deleteX, deleteY,
-                    0, 0,
-                    DELETE_SIZE, DELETE_SIZE,
-                    DELETE_SIZE, DELETE_SIZE,
-                    DELETE_SIZE, DELETE_SIZE, -1);
+            context.drawTexture(RenderPipelines.GUI_TEXTURED, icon, deleteX, deleteY, 0, 0, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, DELETE_SIZE, -1);
         }
     }
 
@@ -138,8 +135,8 @@ public class DialogueEntryWidget extends ClickableWidget {
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
 
         if (selectionMode) {
-            if (checkbox.isMouseOver(mouseX, mouseY)) {
-                checkbox.mouseClicked(mouseX, mouseY, button);
+            if (option.isMouseOver(mouseX, mouseY)) {
+                option.mouseClicked(mouseX, mouseY, button);
                 return true;
             }
             return false;
